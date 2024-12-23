@@ -11,13 +11,11 @@ pub struct Codegen<'ctx> {
     builder: Builder<'ctx>,
     module: Module<'ctx>,
     function: FunctionValue<'ctx>,
+
+    int_type: IntType<'ctx>,
 }
 
 impl<'ctx> Codegen<'ctx> {
-    fn basic_type(&self) -> IntType<'ctx> {
-        self.context.i32_type()
-    }
-
     pub fn new(context: &'ctx Context) -> Self {
         let builder = context.create_builder();
         let module = context.create_module("myModule");
@@ -34,6 +32,7 @@ impl<'ctx> Codegen<'ctx> {
             builder,
             module,
             function,
+            int_type,
         }
     }
 
@@ -46,38 +45,44 @@ impl<'ctx> Codegen<'ctx> {
     fn compile_expression(&mut self, expression: &ir::Expression) -> IntValue<'ctx> {
         match expression {
             ir::Expression::Direct(value) => self.compile_value(value),
-            ir::Expression::Operation { kind, lhs, rhs } => {
-                let lhs = self.compile_expression(lhs);
-                let rhs = self.compile_expression(rhs);
-                match kind {
-                    ir::OpKind::Add => self.builder.build_int_add(lhs, rhs, "add").unwrap(),
-                    ir::OpKind::And => self.builder.build_and(lhs, rhs, "and").unwrap(),
-                    ir::OpKind::Sma => self.builder.build_int_compare(inkwell::IntPredicate::SLT, lhs, rhs, "and").unwrap(),
+            ir::Expression::BinaryOperation(binop) => {
+                let lhs = self.compile_expression(&binop.lhs);
+                let rhs = self.compile_expression(&binop.rhs);
+                match binop.kind {
+                    ir::BinaryOperationKind::Add => {
+                        self.builder.build_int_add(lhs, rhs, "add").unwrap()
+                    }
+                    ir::BinaryOperationKind::Cmp => self
+                        .builder
+                        .build_int_compare(inkwell::IntPredicate::SLT, lhs, rhs, "and")
+                        .unwrap(),
+                    ir::BinaryOperationKind::And => {
+                        self.builder.build_and(lhs, rhs, "and").unwrap()
+                    }
                 }
             }
-            ir::Expression::IfThenElse { cond, then_clause, else_clause } => {
-                let cond = self.compile_expression(cond);
+            ir::Expression::Conditional(c) => {
+                let condition = self.compile_expression(&c.condition);
 
                 let then_bb = self.context.append_basic_block(self.function, "then");
                 let else_bb = self.context.append_basic_block(self.function, "else");
                 let cont_bb = self.context.append_basic_block(self.function, "cont");
 
-                self.builder.build_conditional_branch(cond, then_bb, else_bb).unwrap();
+                self.builder
+                    .build_conditional_branch(condition, then_bb, else_bb)
+                    .unwrap();
 
                 self.builder.position_at_end(then_bb);
-                let then_value = self.compile_expression(then_clause);
+                let then_value = self.compile_expression(&c.then_branch);
                 self.builder.build_unconditional_branch(cont_bb).unwrap();
 
                 self.builder.position_at_end(else_bb);
-                let else_value = self.compile_expression(else_clause);
+                let else_value = self.compile_expression(&c.else_branch);
                 self.builder.build_unconditional_branch(cont_bb).unwrap();
 
                 self.builder.position_at_end(cont_bb);
-                let phi = self.builder.build_phi(self.basic_type(), "iftmp").unwrap();
-                phi.add_incoming(&[
-                    (&then_value, then_bb),
-                    (&else_value, else_bb),
-                ]);
+                let phi = self.builder.build_phi(self.int_type, "cond-phi").unwrap();
+                phi.add_incoming(&[(&then_value, then_bb), (&else_value, else_bb)]);
 
                 phi.as_any_value_enum().into_int_value()
             }
@@ -86,7 +91,7 @@ impl<'ctx> Codegen<'ctx> {
 
     fn compile_value(&self, value: &ir::Value) -> IntValue<'ctx> {
         match value {
-            ir::Value::Number(n) => self.basic_type().const_int(*n as u64, true),
+            ir::Value::Number(n) => self.int_type.const_int(*n as u64, true),
             ir::Value::Boolean(false) => self.context.bool_type().const_int(0, false),
             ir::Value::Boolean(true) => self.context.bool_type().const_int(1, false),
         }

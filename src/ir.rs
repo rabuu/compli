@@ -7,21 +7,27 @@ pub enum Value {
 #[derive(Debug)]
 pub enum Expression {
     Direct(Value),
-    Operation {
-        kind: OpKind,
-        lhs: Box<Expression>,
-        rhs: Box<Expression>,
-    },
-    IfThenElse {
-        cond: Box<Expression>,
-        then_clause: Box<Expression>,
-        else_clause: Box<Expression>,
-    },
+    BinaryOperation(Box<BinaryOperation>),
+    Conditional(Box<Conditional>),
 }
 
 #[derive(Debug)]
-pub enum OpKind {
+pub struct BinaryOperation {
+    pub kind: BinaryOperationKind,
+    pub lhs: Expression,
+    pub rhs: Expression,
+}
+
+#[derive(Debug)]
+pub enum BinaryOperationKind {
     Add,
+    Cmp,
     And,
-    Sma,
+}
+
+#[derive(Debug)]
+pub struct Conditional {
+    pub condition: Expression,
+    pub then_branch: Expression,
+    pub else_branch: Expression,
 }
