@@ -24,7 +24,10 @@ fn main() {
             ast::Expression::Int(42),
             ast::Expression::Call {
                 name: "+".to_string(),
-                args: vec![ast::Expression::Var("x".to_string()), ast::Expression::Int(2)],
+                args: vec![
+                    ast::Expression::Var("x".to_string()),
+                    ast::Expression::Int(2),
+                ],
             },
         ],
     };

@@ -45,7 +45,11 @@ impl<'ctx> Codegen<'ctx> {
         self.module
     }
 
-    fn compile_expression(&mut self, expression: &ir::Expression, bindings: &HashMap<Variable, IntValue<'ctx>>) -> IntValue<'ctx> {
+    fn compile_expression(
+        &mut self,
+        expression: &ir::Expression,
+        bindings: &HashMap<Variable, IntValue<'ctx>>,
+    ) -> IntValue<'ctx> {
         match expression {
             ir::Expression::Direct(value) => self.compile_value(value, bindings),
             ir::Expression::LocalBinding(local) => {
@@ -53,7 +57,7 @@ impl<'ctx> Codegen<'ctx> {
                 let mut extended_bindings = bindings.clone();
                 extended_bindings.insert(local.var, bind);
                 self.compile_expression(&local.body, &extended_bindings)
-            },
+            }
             ir::Expression::BinaryOperation(binop) => {
                 let lhs = self.compile_expression(&binop.lhs, bindings);
                 let rhs = self.compile_expression(&binop.rhs, bindings);
@@ -98,7 +102,11 @@ impl<'ctx> Codegen<'ctx> {
         }
     }
 
-    fn compile_value(&self, value: &ir::Value, bindings: &HashMap<Variable, IntValue<'ctx>>) -> IntValue<'ctx> {
+    fn compile_value(
+        &self,
+        value: &ir::Value,
+        bindings: &HashMap<Variable, IntValue<'ctx>>,
+    ) -> IntValue<'ctx> {
         match value {
             ir::Value::Number(n) => self.int_type.const_int(*n as u64, true),
             ir::Value::Boolean(false) => self.context.bool_type().const_int(0, false),

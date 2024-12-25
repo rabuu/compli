@@ -36,7 +36,7 @@ impl Lowerer {
             Expression::Var(v) => match vars.get(&v) {
                 Some(var) => ir::Expression::Direct(ir::Value::Variable(*var)),
                 None => panic!("Not bound"),
-            }
+            },
             Expression::LetIn { var, bind, body } => {
                 let bind = self.lower_expression(*bind, vars);
                 let fresh = self.variable_counter.fresh();
