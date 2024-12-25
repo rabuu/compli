@@ -1,14 +1,25 @@
+use crate::variable::Variable;
+
 #[derive(Debug)]
 pub enum Value {
     Number(i32),
     Boolean(bool),
+    Variable(Variable),
 }
 
 #[derive(Debug)]
 pub enum Expression {
     Direct(Value),
+    LocalBinding(Box<LocalBinding>),
     BinaryOperation(Box<BinaryOperation>),
     Conditional(Box<Conditional>),
+}
+
+#[derive(Debug)]
+pub struct LocalBinding {
+    pub var: Variable,
+    pub bind: Expression,
+    pub body: Expression,
 }
 
 #[derive(Debug)]

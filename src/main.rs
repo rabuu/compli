@@ -10,6 +10,7 @@ use codegen::Codegen;
 
 mod codegen;
 mod ir;
+mod variable;
 
 fn main() {
     let expr1 = ir::Expression::Direct(ir::Value::Boolean(true));

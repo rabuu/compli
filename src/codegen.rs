@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
@@ -5,6 +7,7 @@ use inkwell::types::IntType;
 use inkwell::values::{AnyValue, FunctionValue, IntValue};
 
 use crate::ir;
+use crate::variable::Variable;
 
 pub struct Codegen<'ctx> {
     context: &'ctx Context,
@@ -37,17 +40,23 @@ impl<'ctx> Codegen<'ctx> {
     }
 
     pub fn compile(mut self, expression: ir::Expression) -> Module<'ctx> {
-        let result = self.compile_expression(&expression);
+        let result = self.compile_expression(&expression, &HashMap::new());
         self.builder.build_return(Some(&result)).unwrap();
         self.module
     }
 
-    fn compile_expression(&mut self, expression: &ir::Expression) -> IntValue<'ctx> {
+    fn compile_expression(&mut self, expression: &ir::Expression, bindings: &HashMap<Variable, IntValue<'ctx>>) -> IntValue<'ctx> {
         match expression {
-            ir::Expression::Direct(value) => self.compile_value(value),
+            ir::Expression::Direct(value) => self.compile_value(value, bindings),
+            ir::Expression::LocalBinding(local) => {
+                let bind = self.compile_expression(&local.bind, bindings);
+                let mut extended_bindings = bindings.clone();
+                extended_bindings.insert(local.var, bind);
+                self.compile_expression(&local.body, &extended_bindings)
+            },
             ir::Expression::BinaryOperation(binop) => {
-                let lhs = self.compile_expression(&binop.lhs);
-                let rhs = self.compile_expression(&binop.rhs);
+                let lhs = self.compile_expression(&binop.lhs, bindings);
+                let rhs = self.compile_expression(&binop.rhs, bindings);
                 match binop.kind {
                     ir::BinaryOperationKind::Add => {
                         self.builder.build_int_add(lhs, rhs, "add").unwrap()
@@ -62,7 +71,7 @@ impl<'ctx> Codegen<'ctx> {
                 }
             }
             ir::Expression::Conditional(c) => {
-                let condition = self.compile_expression(&c.condition);
+                let condition = self.compile_expression(&c.condition, bindings);
 
                 let then_bb = self.context.append_basic_block(self.function, "then");
                 let else_bb = self.context.append_basic_block(self.function, "else");
@@ -73,11 +82,11 @@ impl<'ctx> Codegen<'ctx> {
                     .unwrap();
 
                 self.builder.position_at_end(then_bb);
-                let then_value = self.compile_expression(&c.then_branch);
+                let then_value = self.compile_expression(&c.then_branch, bindings);
                 self.builder.build_unconditional_branch(cont_bb).unwrap();
 
                 self.builder.position_at_end(else_bb);
-                let else_value = self.compile_expression(&c.else_branch);
+                let else_value = self.compile_expression(&c.else_branch, bindings);
                 self.builder.build_unconditional_branch(cont_bb).unwrap();
 
                 self.builder.position_at_end(cont_bb);
@@ -89,11 +98,12 @@ impl<'ctx> Codegen<'ctx> {
         }
     }
 
-    fn compile_value(&self, value: &ir::Value) -> IntValue<'ctx> {
+    fn compile_value(&self, value: &ir::Value, bindings: &HashMap<Variable, IntValue<'ctx>>) -> IntValue<'ctx> {
         match value {
             ir::Value::Number(n) => self.int_type.const_int(*n as u64, true),
             ir::Value::Boolean(false) => self.context.bool_type().const_int(0, false),
             ir::Value::Boolean(true) => self.context.bool_type().const_int(1, false),
+            ir::Value::Variable(v) => *bindings.get(v).unwrap(),
         }
     }
 }
