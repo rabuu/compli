@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::Path;
 
 use inkwell::context::Context;
@@ -8,27 +9,40 @@ use inkwell::OptimizationLevel;
 
 use codegen::Codegen;
 
+use self::ast::Lowerer;
+
+mod ast;
 mod codegen;
 mod ir;
 mod variable;
 
 fn main() {
-    let expr1 = ir::Expression::Direct(ir::Value::Boolean(true));
-    let expr2 = ir::Expression::Direct(ir::Value::Number(-42));
-    let expr3 = ir::Expression::BinaryOperation(Box::new(ir::BinaryOperation {
-        kind: ir::BinaryOperationKind::Add,
-        lhs: ir::Expression::Direct(ir::Value::Number(1)),
-        rhs: ir::Expression::Direct(ir::Value::Number(2)),
-    }));
-    let expr4 = ir::Expression::Conditional(Box::new(ir::Conditional {
-        condition: expr1,
-        then_branch: expr2,
-        else_branch: expr3,
-    }));
+    let expr = ast::Expression::Call {
+        name: "if".to_string(),
+        args: vec![
+            ast::Expression::Bool(false),
+            ast::Expression::Int(42),
+            ast::Expression::Call {
+                name: "+".to_string(),
+                args: vec![ast::Expression::Var("x".to_string()), ast::Expression::Int(2)],
+            },
+        ],
+    };
+
+    let expr = ast::Expression::LetIn {
+        var: "x".to_string(),
+        bind: Box::new(ast::Expression::Int(3)),
+        body: Box::new(expr),
+    };
+
+    let mut lowerer = Lowerer::default();
+    let expr = lowerer.lower_expression(expr, &HashMap::new());
+
+    eprintln!("{expr:#?}");
 
     let context = Context::create();
     let codegen = Codegen::new(&context);
-    let module = codegen.compile(expr4);
+    let module = codegen.compile(expr);
 
     Target::initialize_x86(&InitializationConfig::default());
 
