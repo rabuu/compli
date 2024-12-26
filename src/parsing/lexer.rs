@@ -1,3 +1,5 @@
+use std::fmt;
+
 use chumsky::prelude::*;
 
 use crate::Spanned;
@@ -36,6 +38,39 @@ pub enum Token {
     Else,
     Let,
     In,
+}
+
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Token::KwBool => write!(f, "bool"),
+            Token::Bool(b) => write!(f, "{}", b),
+            Token::KwInt => write!(f, "int"),
+            Token::Int(i) => write!(f, "{}", i),
+            Token::Ident(id) => write!(f, "{}", id),
+            Token::Decl => write!(f, "decl"),
+            Token::Func => write!(f, "func"),
+            Token::Assign => write!(f, "="),
+            Token::Equals => write!(f, "=="),
+            Token::Less => write!(f, "<"),
+            Token::Plus => write!(f, "+"),
+            Token::Minus => write!(f, "-"),
+            Token::And => write!(f, "&&"),
+            Token::ParenOpen => write!(f, "("),
+            Token::ParenClose => write!(f, ")"),
+            Token::CurlyOpen => write!(f, "{{"),
+            Token::CurlyClose => write!(f, "}}"),
+            Token::Comma => write!(f, ","),
+            Token::Colon => write!(f, ":"),
+            Token::Semicolon => write!(f, ";"),
+            Token::Arrow => write!(f, "->"),
+            Token::If => write!(f, "if"),
+            Token::Then => write!(f, "then"),
+            Token::Else => write!(f, "else"),
+            Token::Let => write!(f, "let"),
+            Token::In => write!(f, "in"),
+        }
+    }
 }
 
 pub fn lex() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {

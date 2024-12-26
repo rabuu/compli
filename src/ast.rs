@@ -1,4 +1,8 @@
+use crate::Spanned;
+
 type Ident = String;
+
+type SpExpression = Spanned<Expression>;
 
 #[derive(Debug)]
 pub enum Expression {
@@ -8,30 +12,30 @@ pub enum Expression {
 
     UnaOp {
         kind: UnaOpKind,
-        inner: Box<Expression>,
+        inner: Box<SpExpression>,
     },
 
     BinOp {
         kind: BinOpKind,
-        lhs: Box<Expression>,
-        rhs: Box<Expression>,
+        lhs: Box<SpExpression>,
+        rhs: Box<SpExpression>,
     },
 
     LetIn {
         var: Ident,
-        bind: Box<Expression>,
-        body: Box<Expression>,
+        bind: Box<SpExpression>,
+        body: Box<SpExpression>,
     },
 
     IfThenElse {
-        condition: Box<Expression>,
-        then_branch: Box<Expression>,
-        else_branch: Box<Expression>,
+        condition: Box<SpExpression>,
+        then_branch: Box<SpExpression>,
+        else_branch: Box<SpExpression>,
     },
 
     Call {
         function: Ident,
-        args: Vec<Expression>,
+        args: Vec<SpExpression>,
     },
 }
 

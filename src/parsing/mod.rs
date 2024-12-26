@@ -1,16 +1,34 @@
 use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
 use chumsky::error::SimpleReason;
-use chumsky::prelude::*;
+use chumsky::{prelude::*, Stream};
 
-use crate::ast;
+use crate::{ast, Span, Spanned};
 use lexer::Token;
 
 mod lexer;
 
 pub fn parse(text: &str) {
-    let (tokens, mut errs) = lexer::lex().parse_recovery(text);
+    let (tokens, errs) = lexer::lex().parse_recovery(text);
 
-    for e in errs.into_iter().map(|e| e.map(|c| c.to_string())) {
+    let parse_errs = if let Some(tokens) = tokens {
+        let len = text.chars().count();
+        let (ast, parse_errs) =
+            expr_parser().parse_recovery(Stream::from_iter(len..len + 1, tokens.into_iter()));
+
+        if let Some(ast) = ast.filter(|_| errs.len() + parse_errs.len() == 0) {
+            println!("SUCESS:\n{ast:#?}");
+        }
+
+        parse_errs
+    } else {
+        Vec::new()
+    };
+
+    for e in errs
+        .into_iter()
+        .map(|e| e.map(|c| c.to_string()))
+        .chain(parse_errs.into_iter().map(|e| e.map(|tok| tok.to_string())))
+    {
         let report = Report::build(ReportKind::Error, e.span());
 
         let report = match e.reason() {
@@ -74,14 +92,12 @@ pub fn parse(text: &str) {
             ),
         };
 
-        report.finish().print(Source::from(text)).unwrap();
+        report.finish().eprint(Source::from(text)).unwrap();
     }
-
-    println!("TOKENS: {tokens:#?}");
 }
 
-fn parser() -> impl Parser<Token, ast::Expression, Error = Simple<Token>> + Clone {
-    let expr = recursive(|expr| {
+fn expr_parser() -> impl Parser<Token, Spanned<ast::Expression>, Error = Simple<Token>> + Clone {
+    recursive(|expr: chumsky::recursive::Recursive<Token, Spanned<ast::Expression>, Simple<Token>>| {
         let val = select! {
             Token::Int(x) => ast::Expression::Int(x),
             Token::Bool(x) => ast::Expression::Bool(x),
@@ -99,20 +115,32 @@ fn parser() -> impl Parser<Token, ast::Expression, Error = Simple<Token>> + Clon
 
         let call = ident
             .then(items.delimited_by(just(Token::ParenOpen), just(Token::ParenClose)))
-            .map(|(function, args)| ast::Expression::Call { function, args });
+            .map(|(function, args)| ast::Expression::Call {
+                function,
+                args,
+            });
 
-        let atom = choice((val, call, var, expr.clone().delimited_by(just(Token::ParenOpen), just(Token::ParenClose))));
+        let atom = val
+            .or(call)
+            .or(var)
+            .map_with_span(|e, span: Span| (e, span))
+            .or(expr
+                .clone()
+                .delimited_by(just(Token::ParenOpen), just(Token::ParenClose)));
 
         let unary = just(Token::Minus)
             .to(ast::UnaOpKind::Neg)
+            .map_with_span(|e, span: Span| (e, span))
             .or_not()
             .then(atom)
             .map(|(op, inner)| {
                 if let Some(op) = op {
-                    ast::Expression::UnaOp {
-                        kind: op,
+                    let span = op.1.start..inner.1.end;
+                    let e = ast::Expression::UnaOp {
+                        kind: op.0,
                         inner: Box::new(inner),
-                    }
+                    };
+                    (e, span)
                 } else {
                     inner
                 }
@@ -127,10 +155,14 @@ fn parser() -> impl Parser<Token, ast::Expression, Error = Simple<Token>> + Clon
                     .then(unary)
                     .repeated(),
             )
-            .foldl(|lhs, (kind, rhs)| ast::Expression::BinOp {
-                kind,
-                lhs: Box::new(lhs),
-                rhs: Box::new(rhs),
+            .foldl(|lhs, (kind, rhs)| {
+                let span = lhs.1.start..rhs.1.end;
+                let e = ast::Expression::BinOp {
+                    kind,
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                };
+                (e, span)
             });
 
         let comparison = sum_or_diff
@@ -142,10 +174,14 @@ fn parser() -> impl Parser<Token, ast::Expression, Error = Simple<Token>> + Clon
                     .then(sum_or_diff)
                     .repeated(),
             )
-            .foldl(|lhs, (kind, rhs)| ast::Expression::BinOp {
-                kind,
-                lhs: Box::new(lhs),
-                rhs: Box::new(rhs),
+            .foldl(|lhs, (kind, rhs)| {
+                let span = lhs.1.start..rhs.1.end;
+                let e = ast::Expression::BinOp {
+                    kind,
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                };
+                (e, span)
             });
 
         let and = comparison
@@ -156,15 +192,17 @@ fn parser() -> impl Parser<Token, ast::Expression, Error = Simple<Token>> + Clon
                     .then(comparison)
                     .repeated(),
             )
-            .foldl(|lhs, (kind, rhs)| ast::Expression::BinOp {
-                kind,
-                lhs: Box::new(lhs),
-                rhs: Box::new(rhs),
+            .foldl(|lhs, (kind, rhs)| {
+                let span = lhs.1.start..rhs.1.end;
+                let e = ast::Expression::BinOp {
+                    kind,
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                };
+                (e, span)
             });
 
         #[allow(clippy::let_and_return)]
         and
-    });
-
-    expr
+    })
 }

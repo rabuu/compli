@@ -29,12 +29,12 @@ impl Lowerer {
                 None => panic!("Not bound"),
             },
             Expression::UnaOp { inner, .. } => {
-                let _inner = self.lower_expression(*inner, vars);
+                let _inner = self.lower_expression(inner.0, vars);
                 todo!()
             }
             Expression::BinOp { kind, lhs, rhs } => {
-                let lhs = self.lower_expression(*lhs, vars);
-                let rhs = self.lower_expression(*rhs, vars);
+                let lhs = self.lower_expression(lhs.0, vars);
+                let rhs = self.lower_expression(rhs.0, vars);
                 ir::Expression::BinaryOperation(Box::new(ir::BinaryOperation {
                     kind: match kind {
                         BinOpKind::Add => ir::BinaryOperationKind::Add,
@@ -47,11 +47,11 @@ impl Lowerer {
                 }))
             }
             Expression::LetIn { var, bind, body } => {
-                let bind = self.lower_expression(*bind, vars);
+                let bind = self.lower_expression(bind.0, vars);
                 let fresh = self.fresh_variable();
                 let mut extended_vars = vars.clone();
                 extended_vars.insert(var, fresh);
-                let body = self.lower_expression(*body, &extended_vars);
+                let body = self.lower_expression(body.0, &extended_vars);
 
                 ir::Expression::LocalBinding(Box::new(ir::LocalBinding {
                     var: fresh,
@@ -64,9 +64,9 @@ impl Lowerer {
                 then_branch,
                 else_branch,
             } => ir::Expression::Conditional(Box::new(ir::Conditional {
-                condition: self.lower_expression(*condition, vars),
-                then_branch: self.lower_expression(*then_branch, vars),
-                else_branch: self.lower_expression(*else_branch, vars),
+                condition: self.lower_expression(condition.0, vars),
+                then_branch: self.lower_expression(then_branch.0, vars),
+                else_branch: self.lower_expression(else_branch.0, vars),
             })),
             Expression::Call { .. } => unimplemented!(),
         }
