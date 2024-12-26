@@ -2,11 +2,11 @@ use std::fs;
 use std::path::PathBuf;
 
 use anyhow::{anyhow, bail, Result};
-use clap::{Parser, ValueEnum};
 use ariadne::sources;
+use clap::{Parser, ValueEnum};
 
 use tracing::level_filters::LevelFilter;
-use tracing::info;
+use tracing::{info, warn};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
@@ -25,8 +25,12 @@ use compli::parsing;
 #[command(version, about = None, long_about = None)]
 #[command(propagate_version = true)]
 struct CliArgs {
-    /// Source code input file
+    /// Path to the source code file
     input_file: PathBuf,
+
+    /// Path to the output file
+    #[arg(short, long)]
+    output_file: Option<PathBuf>,
 
     /// Execution mode
     #[arg(value_enum)]
@@ -88,11 +92,11 @@ fn main() -> Result<()> {
     }
 
     let _lowerer = Lowerer::default();
-    // let program = lowerer.lower_program(program);
-    //
+    let program = todo!();
+
     let context = Context::create();
     let _codegen = Codegen::new(&context);
-    // let module = codegen.compile(program);
+    let module = todo!();
 
     Target::initialize_x86(&InitializationConfig::default());
 
@@ -100,7 +104,7 @@ fn main() -> Result<()> {
     let reloc = RelocMode::Default;
     let model = CodeModel::Default;
     let target = Target::from_name("x86-64").unwrap();
-    let _target_machine = target
+    let target_machine = target
         .create_target_machine(
             &TargetTriple::create("x86_64-pc-linux-gnu"),
             "x86-64",
@@ -111,9 +115,15 @@ fn main() -> Result<()> {
         )
         .unwrap();
 
-    // assert!(target_machine
-    //     .write_to_file(&module, FileType::Object, Path::new("myModule.o"))
-    //     .is_ok());
+    let out = args.output_file.unwrap_or(PathBuf::from("myModule.o"));
+
+    if out.exists() {
+        warn!("{:?} already exists and will be overridden", &out);
+    }
+
+    target_machine
+        .write_to_file(&module, FileType::Object, &out)
+        .or_else(|_| bail!("Failed to write to file"))?;
 
     Ok(())
 }
