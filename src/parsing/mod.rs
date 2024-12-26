@@ -201,8 +201,26 @@ fn parser() -> impl Parser<Token, ast::Program, Error = Simple<Token>> + Clone {
                     (e, span)
                 });
 
-            #[allow(clippy::let_and_return)]
-            and.labelled("expression")
+            let term = and.labelled("term");
+
+            let if_then_else = just(Token::If)
+                .map_with_span(|_, span: Span| span.start)
+                .then(expr.clone())
+                .then_ignore(just(Token::Then))
+                .then(expr.clone())
+                .then_ignore(just(Token::Else))
+                .then(expr.clone())
+                .map(|(((start, condition), then_branch), else_branch)| {
+                    let span = start..else_branch.1.end;
+                    let e = ast::Expression::IfThenElse {
+                        condition: Box::new(condition),
+                        then_branch: Box::new(then_branch),
+                        else_branch: Box::new(else_branch),
+                    };
+                    (e, span)
+                });
+
+            choice((if_then_else, term))
         },
     );
 
