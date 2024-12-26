@@ -1,5 +1,4 @@
-use std::{fs, io};
-use std::path::{Path, PathBuf};
+use std::fs;
 
 use anyhow::{anyhow, bail, Result};
 use ariadne::sources;
@@ -9,6 +8,11 @@ use inkwell::targets::{
     CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetTriple,
 };
 use inkwell::OptimizationLevel;
+use tracing::level_filters::LevelFilter;
+use tracing::info;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::EnvFilter;
 
 use compli::codegen::Codegen;
 use compli::lowering::Lowerer;
@@ -17,6 +21,15 @@ use compli::parsing;
 mod cli;
 
 fn main() -> Result<()> {
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer())
+        .with(
+            EnvFilter::builder()
+                .with_default_directive(LevelFilter::WARN.into())
+                .from_env_lossy(),
+        )
+        .init();
+
     let args = cli::Args::parse();
 
     if !args.input_file.is_file() {
@@ -31,7 +44,10 @@ fn main() -> Result<()> {
         .to_string();
 
     let program = match parsing::parse(&source, input_file.clone()) {
-        Ok(program) => program,
+        Ok(program) => {
+            info!("Parsing successful");
+            program
+        }
         Err(reports) => {
             for report in reports {
                 report
