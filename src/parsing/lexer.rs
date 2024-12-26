@@ -85,4 +85,5 @@ pub fn lex() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
         .padded_by(comment.repeated())
         .padded()
         .repeated()
+        .then_ignore(end())
 }
