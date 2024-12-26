@@ -1,50 +1,53 @@
-use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
+use ariadne::sources;
+use clap::Parser;
 use inkwell::context::Context;
 use inkwell::targets::{
     CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetTriple,
 };
 use inkwell::OptimizationLevel;
 
-use compli::ast;
 use compli::codegen::Codegen;
 use compli::lowering::Lowerer;
 use compli::parsing;
 
-fn main() {
-    let test = fs::read_to_string("test.compli").unwrap();
-    parsing::parse(&test);
-    // let expr = ast::Expression::Call {
-    //     name: "if".to_string(),
-    //     args: vec![
-    //         ast::Expression::Bool(false),
-    //         ast::Expression::Int(42),
-    //         ast::Expression::Call {
-    //             name: "+".to_string(),
-    //             args: vec![
-    //                 ast::Expression::Var("x".to_string()),
-    //                 ast::Expression::Int(2),
-    //             ],
-    //         },
-    //     ],
-    // };
-    //
-    // let expr = ast::Expression::LetIn {
-    //     var: "x".to_string(),
-    //     bind: Box::new(ast::Expression::Int(3)),
-    //     body: Box::new(expr),
-    // };
-    //
+mod cli;
+
+fn main() -> Result<(), ()> {
+    let args = cli::Args::parse();
+
+    let source = fs::read_to_string(&args.input_file).unwrap();
+    let input_file = args
+        .input_file
+        .to_str()
+        .expect("Invalid file name")
+        .to_string();
+
+    let program = match parsing::parse(&source, input_file.clone()) {
+        Ok(program) => program,
+        Err(reports) => {
+            for report in reports {
+                report
+                    .eprint(sources([(input_file.clone(), &source)]))
+                    .unwrap();
+            }
+            todo!()
+        }
+    };
+
+    if args.mode == cli::Mode::Parse {
+        println!("{program:#?}");
+        return Ok(());
+    }
+
     // let mut lowerer = Lowerer::default();
-    // let expr = lowerer.lower_expression(expr, &HashMap::new());
-    //
-    // eprintln!("{expr:#?}");
+    // let program = lowerer.lower_program(program);
     //
     // let context = Context::create();
     // let codegen = Codegen::new(&context);
-    // let module = codegen.compile(expr);
+    // let module = codegen.compile(program);
     //
     // Target::initialize_x86(&InitializationConfig::default());
     //
@@ -66,4 +69,6 @@ fn main() {
     // assert!(target_machine
     //     .write_to_file(&module, FileType::Object, Path::new("myModule.o"))
     //     .is_ok());
+
+    Ok(())
 }
