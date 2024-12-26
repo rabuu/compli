@@ -2,7 +2,16 @@ use crate::Spanned;
 
 type Ident = String;
 
-type SpExpression = Spanned<Expression>;
+#[derive(Debug)]
+pub struct Program {
+    pub declarations: Vec<Spanned<Declaration>>,
+}
+
+#[derive(Debug)]
+pub struct Declaration {
+    pub name: Ident,
+    pub expr: Expression,
+}
 
 #[derive(Debug)]
 pub enum Expression {
@@ -12,30 +21,30 @@ pub enum Expression {
 
     UnaOp {
         kind: UnaOpKind,
-        inner: Box<SpExpression>,
+        inner: Box<Spanned<Expression>>,
     },
 
     BinOp {
         kind: BinOpKind,
-        lhs: Box<SpExpression>,
-        rhs: Box<SpExpression>,
+        lhs: Box<Spanned<Expression>>,
+        rhs: Box<Spanned<Expression>>,
     },
 
     LetIn {
         var: Ident,
-        bind: Box<SpExpression>,
-        body: Box<SpExpression>,
+        bind: Box<Spanned<Expression>>,
+        body: Box<Spanned<Expression>>,
     },
 
     IfThenElse {
-        condition: Box<SpExpression>,
-        then_branch: Box<SpExpression>,
-        else_branch: Box<SpExpression>,
+        condition: Box<Spanned<Expression>>,
+        then_branch: Box<Spanned<Expression>>,
+        else_branch: Box<Spanned<Expression>>,
     },
 
     Call {
         function: Ident,
-        args: Vec<SpExpression>,
+        args: Vec<Spanned<Expression>>,
     },
 }
 
