@@ -1,4 +1,30 @@
+use std::collections::HashMap;
+
 use crate::Variable;
+
+#[derive(Debug)]
+pub struct Program {
+    pub main_function: FunctionDefinition,
+    pub functions: HashMap<String, FunctionDefinition>,
+}
+
+#[derive(Debug)]
+pub enum Type {
+    Int,
+    Bool,
+}
+
+#[derive(Debug)]
+pub struct FunctionDefinition {
+    pub prototype: FunctionPrototype,
+    pub body: Expression,
+}
+
+#[derive(Debug)]
+pub struct FunctionPrototype {
+    pub parameters: Vec<(Variable, Type)>,
+    pub return_type: Type,
+}
 
 #[derive(Debug)]
 pub enum Value {
