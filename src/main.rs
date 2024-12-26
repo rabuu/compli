@@ -8,14 +8,10 @@ use inkwell::targets::{
 };
 use inkwell::OptimizationLevel;
 
-use codegen::Codegen;
-
-use parsing::ast::{self, Lowerer};
-
-mod parsing;
-mod codegen;
-mod ir;
-mod variable;
+use compli::ast;
+use compli::codegen::Codegen;
+use compli::lowering::Lowerer;
+use compli::parsing;
 
 fn main() {
     parsing::parse("-2 + 2 - 2");

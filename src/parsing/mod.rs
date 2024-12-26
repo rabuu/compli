@@ -1,14 +1,9 @@
-use std::ops::Range;
-
 use chumsky::prelude::*;
 
+use crate::ast;
 use lexer::Token;
 
-pub mod ast;
 mod lexer;
-
-pub type Span = Range<usize>;
-pub type Spanned<T> = (T, Span);
 
 pub fn parse(text: &str) {
     let tokens = lexer::lex().parse(text);
@@ -57,10 +52,10 @@ fn parser() -> impl Parser<Token, ast::Expression, Error = Simple<Token>> + Clon
             .then(atom)
             .map(|(op, inner)| {
                 if let Some(op) = op {
-                    ast::Expression::UnaOp(Box::new(ast::UnaOp {
+                    ast::Expression::UnaOp {
                         kind: op,
-                        inner,
-                    }))
+                        inner: Box::new(inner),
+                    }
                 } else {
                     inner
                 }
@@ -75,8 +70,10 @@ fn parser() -> impl Parser<Token, ast::Expression, Error = Simple<Token>> + Clon
                     .then(unary)
                     .repeated(),
             )
-            .foldl(|lhs, (kind, rhs)| {
-                ast::Expression::BinOp(Box::new(ast::BinOp { kind, lhs, rhs }))
+            .foldl(|lhs, (kind, rhs)| ast::Expression::BinOp {
+                kind,
+                lhs: Box::new(lhs),
+                rhs: Box::new(rhs),
             });
 
         let comparison = sum_or_diff
@@ -88,8 +85,10 @@ fn parser() -> impl Parser<Token, ast::Expression, Error = Simple<Token>> + Clon
                     .then(sum_or_diff)
                     .repeated(),
             )
-            .foldl(|lhs, (kind, rhs)| {
-                ast::Expression::BinOp(Box::new(ast::BinOp { kind, lhs, rhs }))
+            .foldl(|lhs, (kind, rhs)| ast::Expression::BinOp {
+                kind,
+                lhs: Box::new(lhs),
+                rhs: Box::new(rhs),
             });
 
         let and = comparison
@@ -100,8 +99,10 @@ fn parser() -> impl Parser<Token, ast::Expression, Error = Simple<Token>> + Clon
                     .then(comparison)
                     .repeated(),
             )
-            .foldl(|lhs, (kind, rhs)| {
-                ast::Expression::BinOp(Box::new(ast::BinOp { kind, lhs, rhs }))
+            .foldl(|lhs, (kind, rhs)| ast::Expression::BinOp {
+                kind,
+                lhs: Box::new(lhs),
+                rhs: Box::new(rhs),
             });
 
         #[allow(clippy::let_and_return)]

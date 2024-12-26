@@ -1,6 +1,6 @@
 use chumsky::prelude::*;
 
-use super::Spanned;
+use crate::Spanned;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Token {
