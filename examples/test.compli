@@ -1,0 +1,19 @@
+decl CONSTANT = 42
+
+func foo(x: int, y: bool) -> int = (
+	if y then CONSTANT else x
+)
+
+func bar(x: int) -> int = (
+	let y = x + 1 in (
+		x + foo(y, false)
+	)
+)
+
+func fib(n: int) -> int = (
+	if n == 0 then 0
+	else if n < 2 then 1
+	else (
+		fib(n - 1) + fib(n - 2)
+	)
+)
