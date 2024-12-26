@@ -1,24 +1,48 @@
 use std::fs;
+use std::path::PathBuf;
 
 use anyhow::{anyhow, bail, Result};
+use clap::{Parser, ValueEnum};
 use ariadne::sources;
-use clap::Parser;
-use inkwell::context::Context;
-use inkwell::targets::{
-    CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetTriple,
-};
-use inkwell::OptimizationLevel;
+
 use tracing::level_filters::LevelFilter;
 use tracing::info;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
+use inkwell::context::Context;
+use inkwell::targets::{
+    CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetTriple,
+};
+use inkwell::OptimizationLevel;
+
 use compli::codegen::Codegen;
 use compli::lowering::Lowerer;
 use compli::parsing;
 
-mod cli;
+#[derive(Debug, Parser)]
+#[command(version, about = None, long_about = None)]
+#[command(propagate_version = true)]
+struct CliArgs {
+    /// Source code input file
+    input_file: PathBuf,
+
+    /// Execution mode
+    #[arg(value_enum)]
+    #[arg(short, long)]
+    #[arg(default_value_t = ExecutionMode::Compile)]
+    mode: ExecutionMode,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+enum ExecutionMode {
+    /// Compile the source code to machine code
+    Compile,
+
+    /// Inspect the AST of the parsed source code
+    Parse,
+}
 
 fn main() -> Result<()> {
     tracing_subscriber::registry()
@@ -30,7 +54,7 @@ fn main() -> Result<()> {
         )
         .init();
 
-    let args = cli::Args::parse();
+    let args = CliArgs::parse();
 
     if !args.input_file.is_file() {
         bail!("No proper input file: {:?}", args.input_file);
@@ -58,35 +82,35 @@ fn main() -> Result<()> {
         }
     };
 
-    if args.mode == cli::Mode::Parse {
+    if args.mode == ExecutionMode::Parse {
         println!("{program:#?}");
         return Ok(());
     }
 
-    // let mut lowerer = Lowerer::default();
+    let _lowerer = Lowerer::default();
     // let program = lowerer.lower_program(program);
     //
-    // let context = Context::create();
-    // let codegen = Codegen::new(&context);
+    let context = Context::create();
+    let _codegen = Codegen::new(&context);
     // let module = codegen.compile(program);
-    //
-    // Target::initialize_x86(&InitializationConfig::default());
-    //
-    // let opt = OptimizationLevel::Default;
-    // let reloc = RelocMode::Default;
-    // let model = CodeModel::Default;
-    // let target = Target::from_name("x86-64").unwrap();
-    // let target_machine = target
-    //     .create_target_machine(
-    //         &TargetTriple::create("x86_64-pc-linux-gnu"),
-    //         "x86-64",
-    //         "+avx2",
-    //         opt,
-    //         reloc,
-    //         model,
-    //     )
-    //     .unwrap();
-    //
+
+    Target::initialize_x86(&InitializationConfig::default());
+
+    let opt = OptimizationLevel::Default;
+    let reloc = RelocMode::Default;
+    let model = CodeModel::Default;
+    let target = Target::from_name("x86-64").unwrap();
+    let _target_machine = target
+        .create_target_machine(
+            &TargetTriple::create("x86_64-pc-linux-gnu"),
+            "x86-64",
+            "+avx2",
+            opt,
+            reloc,
+            model,
+        )
+        .unwrap();
+
     // assert!(target_machine
     //     .write_to_file(&module, FileType::Object, Path::new("myModule.o"))
     //     .is_ok());
