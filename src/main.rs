@@ -1,6 +1,7 @@
-use std::fs;
-use std::path::Path;
+use std::{fs, io};
+use std::path::{Path, PathBuf};
 
+use anyhow::{anyhow, bail, Result};
 use ariadne::sources;
 use clap::Parser;
 use inkwell::context::Context;
@@ -15,14 +16,18 @@ use compli::parsing;
 
 mod cli;
 
-fn main() -> Result<(), ()> {
+fn main() -> Result<()> {
     let args = cli::Args::parse();
 
-    let source = fs::read_to_string(&args.input_file).unwrap();
+    if !args.input_file.is_file() {
+        bail!("No proper input file: {:?}", args.input_file);
+    }
+
+    let source = fs::read_to_string(&args.input_file)?;
     let input_file = args
         .input_file
         .to_str()
-        .expect("Invalid file name")
+        .ok_or(anyhow!("Bad input path"))?
         .to_string();
 
     let program = match parsing::parse(&source, input_file.clone()) {
@@ -33,7 +38,7 @@ fn main() -> Result<(), ()> {
                     .eprint(sources([(input_file.clone(), &source)]))
                     .unwrap();
             }
-            todo!()
+            bail!("Parsing failed");
         }
     };
 
