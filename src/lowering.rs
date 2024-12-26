@@ -2,14 +2,20 @@ use std::collections::HashMap;
 
 use crate::ast::*;
 use crate::ir;
-use crate::variable::{Variable, VariableCounter};
+use crate::Variable;
 
 #[derive(Debug, Default)]
 pub struct Lowerer {
-    variable_counter: VariableCounter,
+    fresh_variable: Variable,
 }
 
 impl Lowerer {
+    pub fn fresh_variable(&mut self) -> Variable {
+        let fresh = self.fresh_variable;
+        self.fresh_variable.0 += 1;
+        fresh
+    }
+
     pub fn lower_expression(
         &mut self,
         exp: Expression,
@@ -42,7 +48,7 @@ impl Lowerer {
             }
             Expression::LetIn { var, bind, body } => {
                 let bind = self.lower_expression(*bind, vars);
-                let fresh = self.variable_counter.fresh();
+                let fresh = self.fresh_variable();
                 let mut extended_vars = vars.clone();
                 extended_vars.insert(var, fresh);
                 let body = self.lower_expression(*body, &extended_vars);

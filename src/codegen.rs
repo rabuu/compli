@@ -7,7 +7,7 @@ use inkwell::types::IntType;
 use inkwell::values::{AnyValue, FunctionValue, IntValue};
 
 use crate::ir;
-use crate::variable::Variable;
+use crate::Variable;
 
 pub struct Codegen<'ctx> {
     context: &'ctx Context,
