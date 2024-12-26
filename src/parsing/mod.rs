@@ -220,7 +220,24 @@ fn parser() -> impl Parser<Token, ast::Program, Error = Simple<Token>> + Clone {
                     (e, span)
                 });
 
-            choice((if_then_else, term))
+            let let_in = just(Token::Let)
+                .map_with_span(|_, span: Span| span.start)
+                .then(ident)
+                .then_ignore(just(Token::Assign))
+                .then(expr.clone())
+                .then_ignore(just(Token::In))
+                .then(expr.clone())
+                .map(|(((start, var), bind), body)| {
+                    let span = start..body.1.end;
+                    let e = ast::Expression::LetIn {
+                        var,
+                        bind: Box::new(bind),
+                        body: Box::new(body),
+                    };
+                    (e, span)
+                });
+
+            choice((if_then_else, let_in, term))
         },
     );
 
