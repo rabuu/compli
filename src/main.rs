@@ -14,7 +14,8 @@ use compli::lowering::Lowerer;
 use compli::parsing;
 
 fn main() {
-    parsing::parse("-2 + 2 - 2");
+    let test = fs::read_to_string("test.compli").unwrap();
+    parsing::parse(&test);
     // let expr = ast::Expression::Call {
     //     name: "if".to_string(),
     //     args: vec![

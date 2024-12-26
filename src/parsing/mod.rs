@@ -2,6 +2,7 @@ use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
 use chumsky::error::SimpleReason;
 use chumsky::{prelude::*, Stream};
 
+use crate::ast::Program;
 use crate::{ast, Span, Spanned};
 use lexer::Token;
 
@@ -209,15 +210,62 @@ fn parser() -> impl Parser<Token, ast::Program, Error = Simple<Token>> + Clone {
         .map_with_span(|_, span: Span| span.start)
         .then(ident)
         .then_ignore(just(Token::Assign))
-        .then(expr.clone().map(|(e, _)| e))
-        .then(just(Token::Semicolon).map_with_span(|_, span: Span| span.end))
-        .map(|(((start, name), e), end)| {
-            let decl = ast::Declaration {
-                name,
-                expr: e,
-            };
-            (decl, start..end)
-        }).labelled("declaration");
+        .then(expr.clone())
+        .map(|((start, name), expr)| {
+            let span = start..expr.1.end;
+            let decl = ast::Declaration { name, expr };
+            (decl, span)
+        })
+        .labelled("declaration");
 
-    decl.repeated().map(|decls| ast::Program { declarations: decls }).then_ignore(end())
+    let typ = choice((
+        just(Token::KwInt).to(ast::Type::Int),
+        just(Token::KwBool).to(ast::Type::Bool),
+    ));
+
+    let func = just(Token::Func)
+        .map_with_span(|_, span: Span| span.start)
+        .then(ident)
+        .then(
+            ident
+                .then_ignore(just(Token::Colon))
+                .then(typ.clone())
+                .separated_by(just(Token::Comma))
+                .allow_trailing()
+                .delimited_by(just(Token::ParenOpen), just(Token::ParenClose)),
+        )
+        .then_ignore(just(Token::Arrow))
+        .then(typ)
+        .then_ignore(just(Token::Assign))
+        .then(expr.clone())
+        .map(|((((start, name), params), ret_type), body)| {
+            let span = start..body.1.end;
+            let func = ast::Function {
+                name,
+                params,
+                ret_type,
+                body,
+            };
+            (func, span)
+        });
+
+    choice((decl.map(Definition::Decl), func.map(Definition::Func)))
+        .repeated()
+        .collect()
+        .map(|defs: Vec<Definition>| {
+            let mut prg = Program::default();
+            for def in defs {
+                match def {
+                    Definition::Decl(d) => prg.declarations.push(d),
+                    Definition::Func(f) => prg.functions.push(f),
+                }
+            }
+            prg
+        })
+        .then_ignore(end())
+}
+
+enum Definition {
+    Decl(Spanned<ast::Declaration>),
+    Func(Spanned<ast::Function>),
 }

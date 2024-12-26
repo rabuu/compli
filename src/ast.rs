@@ -2,15 +2,30 @@ use crate::Spanned;
 
 type Ident = String;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Program {
     pub declarations: Vec<Spanned<Declaration>>,
+    pub functions: Vec<Spanned<Function>>,
 }
 
 #[derive(Debug)]
 pub struct Declaration {
     pub name: Ident,
-    pub expr: Expression,
+    pub expr: Spanned<Expression>,
+}
+
+#[derive(Debug)]
+pub struct Function {
+    pub name: Ident,
+    pub params: Vec<(Ident, Type)>,
+    pub ret_type: Type,
+    pub body: Spanned<Expression>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Type {
+    Int,
+    Bool,
 }
 
 #[derive(Debug)]
