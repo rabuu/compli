@@ -17,7 +17,7 @@ use inkwell::targets::{
 };
 use inkwell::OptimizationLevel;
 
-use compli::{codegen, parsing, lowering};
+use compli::{codegen, lowering, parsing};
 
 #[derive(Debug, Parser)]
 #[command(version, about = None, long_about = None)]

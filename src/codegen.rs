@@ -12,7 +12,10 @@ use crate::{ir, Type};
 pub fn compile<'a>(context: &'a Context, program: &ir::Program) -> Module<'a> {
     let mut codegen = Codegen::new(context);
 
-    let prototypes = program.functions.iter().map(|(name, def)| (name, def.prototype.clone()));
+    let prototypes = program
+        .functions
+        .iter()
+        .map(|(name, def)| (name, def.prototype.clone()));
     for (name, prototype) in prototypes {
         codegen.compile_prototype(name, &prototype);
     }

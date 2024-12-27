@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{Variable, Type};
+use crate::{Type, Variable};
 
 #[derive(Debug)]
 pub struct Program {
