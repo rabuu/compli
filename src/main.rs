@@ -99,7 +99,7 @@ fn main() -> Result<()> {
     }
 
     let context = Context::create();
-    let module = codegen::compile(&context, &program);
+    let module = codegen::compile(&context, program);
 
     Target::initialize_x86(&InitializationConfig::default());
 

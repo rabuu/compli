@@ -10,7 +10,7 @@ type Spanned<T> = (T, Span);
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Variable(usize);
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Type {
     Int,
     Bool,

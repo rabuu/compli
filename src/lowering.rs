@@ -18,8 +18,8 @@ struct Lowerer {
 
 impl Lowerer {
     fn lower_program(&mut self, program: Program) -> Result<ir::Program> {
-        let mut functions = HashMap::new();
-        let mut main_function = None;
+        let mut functions = Vec::with_capacity(program.functions.len());
+        let mut entry = None;
         for (func, _) in program.functions {
             let param_vars: Vec<(String, Variable, Type)> = func
                 .params
@@ -34,6 +34,7 @@ impl Lowerer {
                 .collect();
 
             let prototype = ir::FunctionPrototype {
+                name: func.name.clone(),
                 parameters: param_vars
                     .into_iter()
                     .map(|(_, var, typ)| (var, typ))
@@ -46,14 +47,16 @@ impl Lowerer {
             let function = ir::FunctionDefinition { prototype, body };
 
             if func.name.as_str() == "main" {
-                main_function = Some(function);
+                assert!(function.prototype.parameters.is_empty());
+                assert_eq!(function.prototype.return_type, Type::Int);
+                entry = Some(function.body);
             } else {
-                functions.insert(func.name, function);
+                functions.push(function);
             }
         }
 
         Ok(ir::Program {
-            main_function: main_function.ok_or(anyhow!("No main function provided"))?,
+            entry: entry.ok_or(anyhow!("No main function provided"))?,
             functions,
         })
     }
@@ -116,10 +119,10 @@ impl Lowerer {
                     .map(|(arg, _)| self.lower_expression(arg, vars))
                     .collect();
 
-                ir::Expression::FunctionCall(ir::FunctionCall {
+                ir::Expression::FunctionCall {
                     fn_name: function,
                     args,
-                })
+                }
             }
         }
     }

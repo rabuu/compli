@@ -9,21 +9,26 @@ use inkwell::values::{AnyValue, BasicMetadataValueEnum, FunctionValue, IntValue}
 use crate::Variable;
 use crate::{ir, Type};
 
-pub fn compile<'a>(context: &'a Context, program: &ir::Program) -> Module<'a> {
-    let mut codegen = Codegen::new(context);
+pub fn compile(context: &Context, program: ir::Program) -> Module {
+    let mut codegen = Codegen::new(context, &program.skeleton());
 
-    let prototypes = program
-        .functions
-        .iter()
-        .map(|(name, def)| (name, def.prototype.clone()));
-    for (name, prototype) in prototypes {
-        codegen.compile_prototype(name, &prototype);
-    }
-    codegen.compile_prototype("__compli_entry", &program.main_function.prototype);
+    let entry_fn_proto = ir::FunctionPrototype {
+        name: String::from("__compli_entry"),
+        parameters: vec![],
+        return_type: Type::Int,
+    };
 
-    codegen.compile_function("__compli_entry", &program.main_function);
-    for (name, function) in &program.functions {
-        codegen.compile_function(name, function);
+    codegen.compile_prototype(&entry_fn_proto);
+
+    let entry_fn = ir::FunctionDefinition {
+        prototype: entry_fn_proto,
+        body: program.entry,
+    };
+
+    codegen.compile_function(&entry_fn);
+
+    for function in &program.functions {
+        codegen.compile_function(function);
     }
 
     codegen.module
@@ -37,16 +42,22 @@ struct Codegen<'ctx> {
 }
 
 impl<'ctx> Codegen<'ctx> {
-    fn new(context: &'ctx Context) -> Self {
+    fn new(context: &'ctx Context, skeleton: &[ir::FunctionPrototype]) -> Self {
         let builder = context.create_builder();
         let module = context.create_module("compliModule");
 
-        Self {
+        let codegen = Self {
             context,
             builder,
             module,
             function: None,
+        };
+
+        for prototype in skeleton {
+            codegen.compile_prototype(prototype);
         }
+
+        codegen
     }
 
     fn function(&self) -> FunctionValue<'ctx> {
@@ -57,12 +68,23 @@ impl<'ctx> Codegen<'ctx> {
         self.context.i32_type()
     }
 
-    fn compile_function(
-        &mut self,
-        name: &str,
-        function: &ir::FunctionDefinition,
-    ) -> FunctionValue<'ctx> {
-        let func = self.module.get_function(name).expect("Prototype missing");
+    fn compile_prototype(&self, prototype: &ir::FunctionPrototype) {
+        let ret_type = self.compile_type(&prototype.return_type);
+        let param_types: Vec<BasicMetadataTypeEnum> = prototype
+            .parameters
+            .iter()
+            .map(|(_, typ)| self.compile_type(typ).into())
+            .collect();
+
+        let fn_type = ret_type.fn_type(&param_types, false);
+        self.module.add_function(&prototype.name, fn_type, None);
+    }
+
+    fn compile_function(&mut self, function: &ir::FunctionDefinition) -> FunctionValue<'ctx> {
+        let func = self
+            .module
+            .get_function(&function.prototype.name)
+            .expect("Prototype missing");
         self.function = Some(func);
 
         let mut bindings = HashMap::new();
@@ -84,24 +106,6 @@ impl<'ctx> Codegen<'ctx> {
 
         assert!(self.function().verify(true));
         self.function()
-    }
-
-    fn compile_prototype(
-        &self,
-        name: &str,
-        prototype: &ir::FunctionPrototype,
-    ) -> FunctionValue<'ctx> {
-        let ret_type = self.compile_type(&prototype.return_type);
-        let param_types: Vec<BasicMetadataTypeEnum> = prototype
-            .parameters
-            .iter()
-            .map(|(_, typ)| self.compile_type(typ).into())
-            .collect();
-
-        let fn_type = ret_type.fn_type(&param_types, false);
-        let fn_val = self.module.add_function(name, fn_type, None);
-
-        fn_val
     }
 
     fn compile_type(&self, typ: &Type) -> IntType<'ctx> {
@@ -165,11 +169,10 @@ impl<'ctx> Codegen<'ctx> {
 
                 phi.as_any_value_enum().into_int_value()
             }
-            ir::Expression::FunctionCall(call) => {
-                match self.module.get_function(call.fn_name.as_str()) {
+            ir::Expression::FunctionCall { fn_name, args } => {
+                match self.module.get_function(fn_name.as_str()) {
                     Some(func) => {
-                        let compiled_args: Vec<BasicMetadataValueEnum> = call
-                            .args
+                        let compiled_args: Vec<BasicMetadataValueEnum> = args
                             .iter()
                             .map(|arg| self.compile_expression(arg, bindings).into())
                             .collect();
@@ -177,7 +180,7 @@ impl<'ctx> Codegen<'ctx> {
                         let result = self.builder.build_call(func, &compiled_args, "call");
                         result.unwrap().as_any_value_enum().into_int_value()
                     }
-                    None => panic!("No known function: `{}`", call.fn_name.as_str()),
+                    None => panic!("No known function: `{}`", fn_name.as_str()),
                 }
             }
         }
