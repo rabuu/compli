@@ -1,17 +1,12 @@
 use std::collections::HashMap;
 
-use crate::Variable;
+use crate::{Variable, Type};
 
 #[derive(Debug)]
 pub struct Program {
     pub main_function: FunctionDefinition,
     pub functions: HashMap<String, FunctionDefinition>,
-}
-
-#[derive(Debug)]
-pub enum Type {
-    Int,
-    Bool,
+    // pub globals: HashMap<Variable, Expression>,
 }
 
 #[derive(Debug)]

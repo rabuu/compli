@@ -17,9 +17,7 @@ use inkwell::targets::{
 };
 use inkwell::OptimizationLevel;
 
-use compli::codegen::Codegen;
-use compli::lowering::Lowerer;
-use compli::parsing;
+use compli::{codegen, parsing, lowering};
 
 #[derive(Debug, Parser)]
 #[command(version, about = None, long_about = None)]
@@ -91,12 +89,11 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    let _lowerer = Lowerer::default();
-    let program = todo!();
+    let program = lowering::lower(program)?;
+    println!("{program:#?}");
 
     let context = Context::create();
-    let _codegen = Codegen::new(&context);
-    let module = todo!();
+    let module = codegen::compile(&context, &program);
 
     Target::initialize_x86(&InitializationConfig::default());
 

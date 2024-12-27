@@ -6,16 +6,15 @@ use inkwell::module::Module;
 use inkwell::types::{BasicMetadataTypeEnum, IntType};
 use inkwell::values::{AnyValue, FunctionValue, IntValue};
 
-use crate::ir;
 use crate::Variable;
+use crate::{ir, Type};
 
 pub fn compile<'a>(context: &'a Context, program: &ir::Program) -> Module<'a> {
     let mut codegen = Codegen::new(context);
 
-    let bindings = HashMap::new();
-    codegen.compile_function("main", &program.main_function, &bindings);
+    codegen.compile_function("__compli_entry", &program.main_function);
     for (name, function) in &program.functions {
-        codegen.compile_function(name, function, &bindings);
+        codegen.compile_function(name, function);
     }
 
     codegen.module
@@ -41,34 +40,47 @@ impl<'ctx> Codegen<'ctx> {
         }
     }
 
-    fn int_type(&self) -> IntType<'ctx> {
-        self.context.i32_type()
+    fn function(&self) -> FunctionValue<'ctx> {
+        self.function.expect("No function set")
     }
 
-    fn function(&self) -> FunctionValue<'ctx> {
-        self.function.unwrap()
+    fn int_type(&self) -> IntType<'ctx> {
+        self.context.i32_type()
     }
 
     fn compile_function(
         &mut self,
         name: &str,
         function: &ir::FunctionDefinition,
-        bindings: &HashMap<Variable, IntValue<'ctx>>,
     ) -> FunctionValue<'ctx> {
-        let fn_val = self.compile_prototype(name, &function.prototype);
-        self.function = Some(fn_val);
+        self.function = Some(self.compile_prototype(name, &function.prototype));
 
-        let entry = self.context.append_basic_block(fn_val, "entry");
+        let mut bindings = HashMap::new();
+        for (var, value) in function
+            .prototype
+            .parameters
+            .iter()
+            .map(|(var, _)| *var)
+            .zip(self.function().get_param_iter())
+        {
+            bindings.insert(var, value.as_any_value_enum().into_int_value());
+        }
+
+        let entry = self.context.append_basic_block(self.function(), "entry");
         self.builder.position_at_end(entry);
 
-        let body = self.compile_expression(&function.body, bindings);
+        let body = self.compile_expression(&function.body, &bindings);
         self.builder.build_return(Some(&body)).unwrap();
 
-        assert!(fn_val.verify(true));
-        fn_val
+        assert!(self.function().verify(true));
+        self.function()
     }
 
-    fn compile_prototype(&self, name: &str, prototype: &ir::FunctionPrototype) -> FunctionValue<'ctx> {
+    fn compile_prototype(
+        &self,
+        name: &str,
+        prototype: &ir::FunctionPrototype,
+    ) -> FunctionValue<'ctx> {
         let ret_type = self.compile_type(&prototype.return_type);
         let param_types: Vec<BasicMetadataTypeEnum> = prototype
             .parameters
@@ -82,10 +94,10 @@ impl<'ctx> Codegen<'ctx> {
         fn_val
     }
 
-    fn compile_type(&self, typ: &ir::Type) -> IntType<'ctx> {
+    fn compile_type(&self, typ: &Type) -> IntType<'ctx> {
         match typ {
-            ir::Type::Int => self.int_type(),
-            ir::Type::Bool => self.context.bool_type(),
+            Type::Int => self.int_type(),
+            Type::Bool => self.context.bool_type(),
         }
     }
 

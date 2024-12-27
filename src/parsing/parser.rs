@@ -2,7 +2,7 @@ use chumsky::prelude::*;
 
 use super::lexer::Token;
 use crate::ast::Program;
-use crate::{ast, Span, Spanned};
+use crate::{ast, Span, Spanned, Type};
 
 enum Definition {
     Decl(Spanned<ast::Declaration>),
@@ -164,8 +164,8 @@ pub fn parser() -> impl Parser<Token, ast::Program, Error = Simple<Token>> + Clo
         .labelled("declaration");
 
     let typ = choice((
-        just(Token::KwInt).to(ast::Type::Int),
-        just(Token::KwBool).to(ast::Type::Bool),
+        just(Token::KwInt).to(Type::Int),
+        just(Token::KwBool).to(Type::Bool),
     ));
 
     let func = just(Token::Func)

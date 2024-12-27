@@ -1,4 +1,4 @@
-use crate::Spanned;
+use crate::{Spanned, Type};
 
 type Ident = String;
 
@@ -20,12 +20,6 @@ pub struct Function {
     pub params: Vec<(Ident, Type)>,
     pub ret_type: Type,
     pub body: Spanned<Expression>,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum Type {
-    Int,
-    Bool,
 }
 
 #[derive(Debug)]
