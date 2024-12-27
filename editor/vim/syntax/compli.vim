@@ -16,4 +16,6 @@ hi def link compliBoolean Boolean
 hi def link compliNumber Number
 hi def link compliComment Comment
 
+hi compliDataType cterm=italic gui=italic
+
 let b:current_syntax = "compli"
