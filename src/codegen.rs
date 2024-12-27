@@ -10,22 +10,7 @@ use crate::Variable;
 use crate::{ir, Type};
 
 pub fn compile(context: &Context, program: ir::Program) -> Module {
-    let mut codegen = Codegen::new(context, &program.skeleton());
-
-    let entry_fn_proto = ir::FunctionPrototype {
-        name: String::from("__compli_entry"),
-        parameters: vec![],
-        return_type: Type::Int,
-    };
-
-    codegen.compile_prototype(&entry_fn_proto);
-
-    let entry_fn = ir::FunctionDefinition {
-        prototype: entry_fn_proto,
-        body: program.entry,
-    };
-
-    codegen.compile_function(&entry_fn);
+    let mut codegen = Codegen::new(context, &program.skeleton(), &program.entry);
 
     for function in &program.functions {
         codegen.compile_function(function);
@@ -38,34 +23,37 @@ struct Codegen<'ctx> {
     context: &'ctx Context,
     builder: Builder<'ctx>,
     module: Module<'ctx>,
-    function: Option<FunctionValue<'ctx>>,
+    function: FunctionValue<'ctx>,
 }
 
 impl<'ctx> Codegen<'ctx> {
-    fn new(context: &'ctx Context, skeleton: &[ir::FunctionPrototype]) -> Self {
+    fn new(context: &'ctx Context, skeleton: &[ir::FunctionPrototype], entry_expr: &ir::Expression) -> Self {
         let builder = context.create_builder();
         let module = context.create_module("compliModule");
+
+        let entry_fn_type = context.i32_type().fn_type(&[], false);
+        let entry_fn = module.add_function("__compli_entry", entry_fn_type, None);
 
         let codegen = Self {
             context,
             builder,
             module,
-            function: None,
+            function: entry_fn,
         };
 
         for prototype in skeleton {
             codegen.compile_prototype(prototype);
         }
 
+        let entry_bb = codegen.context.append_basic_block(entry_fn, "entry");
+        codegen.builder.position_at_end(entry_bb);
+
+        let body = codegen.compile_expression(entry_expr, &HashMap::new());
+        codegen.builder.build_return(Some(&body)).unwrap();
+
+        assert!(entry_fn.verify(true));
+
         codegen
-    }
-
-    fn function(&self) -> FunctionValue<'ctx> {
-        self.function.expect("No function set")
-    }
-
-    fn int_type(&self) -> IntType<'ctx> {
-        self.context.i32_type()
     }
 
     fn compile_prototype(&self, prototype: &ir::FunctionPrototype) {
@@ -80,12 +68,11 @@ impl<'ctx> Codegen<'ctx> {
         self.module.add_function(&prototype.name, fn_type, None);
     }
 
-    fn compile_function(&mut self, function: &ir::FunctionDefinition) -> FunctionValue<'ctx> {
-        let func = self
+    fn compile_function(&mut self, function: &ir::FunctionDefinition) {
+        self.function = self
             .module
             .get_function(&function.prototype.name)
             .expect("Prototype missing");
-        self.function = Some(func);
 
         let mut bindings = HashMap::new();
         for (var, value) in function
@@ -93,30 +80,29 @@ impl<'ctx> Codegen<'ctx> {
             .parameters
             .iter()
             .map(|(var, _)| *var)
-            .zip(self.function().get_param_iter())
+            .zip(self.function.get_param_iter())
         {
             bindings.insert(var, value.as_any_value_enum().into_int_value());
         }
 
-        let entry = self.context.append_basic_block(self.function(), "entry");
+        let entry = self.context.append_basic_block(self.function, "entry");
         self.builder.position_at_end(entry);
 
         let body = self.compile_expression(&function.body, &bindings);
         self.builder.build_return(Some(&body)).unwrap();
 
-        assert!(self.function().verify(true));
-        self.function()
+        assert!(self.function.verify(true));
     }
 
     fn compile_type(&self, typ: &Type) -> IntType<'ctx> {
         match typ {
-            Type::Int => self.int_type(),
+            Type::Int => self.context.i32_type(),
             Type::Bool => self.context.bool_type(),
         }
     }
 
     fn compile_expression(
-        &mut self,
+        &self,
         expression: &ir::Expression,
         bindings: &HashMap<Variable, IntValue<'ctx>>,
     ) -> IntValue<'ctx> {
@@ -147,9 +133,9 @@ impl<'ctx> Codegen<'ctx> {
             ir::Expression::Conditional(c) => {
                 let condition = self.compile_expression(&c.condition, bindings);
 
-                let then_bb = self.context.append_basic_block(self.function(), "then");
-                let else_bb = self.context.append_basic_block(self.function(), "else");
-                let cont_bb = self.context.append_basic_block(self.function(), "cont");
+                let then_bb = self.context.append_basic_block(self.function, "then");
+                let else_bb = self.context.append_basic_block(self.function, "else");
+                let cont_bb = self.context.append_basic_block(self.function, "cont");
 
                 self.builder
                     .build_conditional_branch(condition, then_bb, else_bb)
@@ -164,7 +150,10 @@ impl<'ctx> Codegen<'ctx> {
                 self.builder.build_unconditional_branch(cont_bb).unwrap();
 
                 self.builder.position_at_end(cont_bb);
-                let phi = self.builder.build_phi(self.int_type(), "cond-phi").unwrap();
+                let phi = self
+                    .builder
+                    .build_phi(self.context.i32_type(), "cond-phi")
+                    .unwrap();
                 phi.add_incoming(&[(&then_value, then_bb), (&else_value, else_bb)]);
 
                 phi.as_any_value_enum().into_int_value()
@@ -192,7 +181,7 @@ impl<'ctx> Codegen<'ctx> {
         bindings: &HashMap<Variable, IntValue<'ctx>>,
     ) -> IntValue<'ctx> {
         match value {
-            ir::Value::Number(n) => self.int_type().const_int(*n as u64, true),
+            ir::Value::Number(n) => self.context.i32_type().const_int(*n as u64, true),
             ir::Value::Boolean(false) => self.context.bool_type().const_int(0, false),
             ir::Value::Boolean(true) => self.context.bool_type().const_int(1, false),
             ir::Value::Variable(v) => *bindings.get(v).unwrap(),
