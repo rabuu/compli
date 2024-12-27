@@ -2,7 +2,7 @@ if exists("b:current_syntax")
 	finish
 end
 
-syn keyword compliKeyword func decl let in
+syn keyword compliKeyword func let in
 syn keyword compliDataType int bool
 syn keyword compliConditional if then else
 syn keyword compliBoolean true false
