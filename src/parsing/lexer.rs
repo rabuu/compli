@@ -33,7 +33,6 @@ pub enum Token {
 
     Comma,
     Colon,
-    Arrow,
 }
 
 impl fmt::Display for Token {
@@ -55,7 +54,6 @@ impl fmt::Display for Token {
             Token::ParenClose => write!(f, ")"),
             Token::Comma => write!(f, ","),
             Token::Colon => write!(f, ":"),
-            Token::Arrow => write!(f, "->"),
             Token::KwIf => write!(f, "if"),
             Token::KwThen => write!(f, "then"),
             Token::KwElse => write!(f, "else"),
@@ -71,7 +69,6 @@ pub fn lex() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
     let symbol = choice((
         just("==").to(Token::Equals),
         just("&&").to(Token::And),
-        just("->").to(Token::Arrow),
         one_of("()=<+-,:").map(|symb: char| match symb {
             '(' => Token::ParenOpen,
             ')' => Token::ParenClose,

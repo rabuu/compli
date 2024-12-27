@@ -161,7 +161,7 @@ pub fn parser() -> impl Parser<Token, ast::Program, Error = Simple<Token>> + Clo
                 .allow_trailing()
                 .delimited_by(just(Token::ParenOpen), just(Token::ParenClose)),
         )
-        .then_ignore(just(Token::Arrow))
+        .then_ignore(just(Token::Colon))
         .then(typ)
         .then_ignore(just(Token::Assign))
         .then(expr.clone())
