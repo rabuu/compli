@@ -4,13 +4,19 @@ use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::types::{BasicMetadataTypeEnum, IntType};
-use inkwell::values::{AnyValue, FunctionValue, IntValue};
+use inkwell::values::{AnyValue, BasicMetadataValueEnum, FunctionValue, IntValue};
 
 use crate::Variable;
 use crate::{ir, Type};
 
 pub fn compile<'a>(context: &'a Context, program: &ir::Program) -> Module<'a> {
     let mut codegen = Codegen::new(context);
+
+    let prototypes = program.functions.iter().map(|(name, def)| (name, def.prototype.clone()));
+    for (name, prototype) in prototypes {
+        codegen.compile_prototype(name, &prototype);
+    }
+    codegen.compile_prototype("__compli_entry", &program.main_function.prototype);
 
     codegen.compile_function("__compli_entry", &program.main_function);
     for (name, function) in &program.functions {
@@ -53,7 +59,8 @@ impl<'ctx> Codegen<'ctx> {
         name: &str,
         function: &ir::FunctionDefinition,
     ) -> FunctionValue<'ctx> {
-        self.function = Some(self.compile_prototype(name, &function.prototype));
+        let func = self.module.get_function(name).expect("Prototype missing");
+        self.function = Some(func);
 
         let mut bindings = HashMap::new();
         for (var, value) in function
@@ -154,6 +161,21 @@ impl<'ctx> Codegen<'ctx> {
                 phi.add_incoming(&[(&then_value, then_bb), (&else_value, else_bb)]);
 
                 phi.as_any_value_enum().into_int_value()
+            }
+            ir::Expression::FunctionCall(call) => {
+                match self.module.get_function(call.fn_name.as_str()) {
+                    Some(func) => {
+                        let compiled_args: Vec<BasicMetadataValueEnum> = call
+                            .args
+                            .iter()
+                            .map(|arg| self.compile_expression(arg, bindings).into())
+                            .collect();
+
+                        let result = self.builder.build_call(func, &compiled_args, "call");
+                        result.unwrap().as_any_value_enum().into_int_value()
+                    }
+                    None => panic!("No known function: `{}`", call.fn_name.as_str()),
+                }
             }
         }
     }

@@ -124,7 +124,17 @@ impl Lowerer {
                 then_branch: self.lower_expression(then_branch.0, vars),
                 else_branch: self.lower_expression(else_branch.0, vars),
             })),
-            Expression::Call { .. } => unimplemented!(),
+            Expression::Call { function, args } => {
+                let args = args
+                    .into_iter()
+                    .map(|(arg, _)| self.lower_expression(arg, vars))
+                    .collect();
+
+                ir::Expression::FunctionCall(ir::FunctionCall {
+                    fn_name: function,
+                    args,
+                })
+            }
         }
     }
 

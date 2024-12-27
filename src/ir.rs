@@ -15,7 +15,7 @@ pub struct FunctionDefinition {
     pub body: Expression,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FunctionPrototype {
     pub parameters: Vec<(Variable, Type)>,
     pub return_type: Type,
@@ -34,6 +34,7 @@ pub enum Expression {
     LocalBinding(Box<LocalBinding>),
     BinaryOperation(Box<BinaryOperation>),
     Conditional(Box<Conditional>),
+    FunctionCall(FunctionCall),
 }
 
 #[derive(Debug)]
@@ -62,4 +63,10 @@ pub struct Conditional {
     pub condition: Expression,
     pub then_branch: Expression,
     pub else_branch: Expression,
+}
+
+#[derive(Debug)]
+pub struct FunctionCall {
+    pub fn_name: String,
+    pub args: Vec<Expression>,
 }
