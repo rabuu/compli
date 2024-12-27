@@ -44,6 +44,9 @@ enum ExecutionMode {
 
     /// Inspect the AST of the parsed source code
     Parse,
+
+    /// Inspect the IR of the lowered AST
+    Ir,
 }
 
 fn main() -> Result<()> {
@@ -90,7 +93,10 @@ fn main() -> Result<()> {
     }
 
     let program = lowering::lower(program)?;
-    println!("{program:#?}");
+    if args.mode == ExecutionMode::Ir {
+        println!("{program:#?}");
+        return Ok(());
+    }
 
     let context = Context::create();
     let module = codegen::compile(&context, &program);
