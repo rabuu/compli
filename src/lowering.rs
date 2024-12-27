@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
 
 use crate::ast::*;
 use crate::ir;
@@ -18,18 +18,6 @@ struct Lowerer {
 
 impl Lowerer {
     fn lower_program(&mut self, program: Program) -> Result<ir::Program> {
-        let mut vars = HashMap::new();
-        // let mut globals = HashMap::new();
-        //
-        // for (decl, _) in program.declarations {
-        //     let e = self.lower_expression(decl.expr.0, &vars);
-        //     let var = self.fresh_variable();
-        //     if vars.insert(decl.name.clone(), var).is_some() {
-        //         bail!("Multiple declaration of name {}", decl.name);
-        //     }
-        //     globals.insert(var, e);
-        // }
-
         let mut functions = HashMap::new();
         let mut main_function = None;
         for (func, _) in program.functions {
@@ -39,13 +27,11 @@ impl Lowerer {
                 .map(|(arg, typ)| (arg, self.fresh_variable(), typ))
                 .collect();
 
-            let mut extended_vars = vars.clone();
-            extended_vars.extend(
-                param_vars
-                    .clone()
-                    .into_iter()
-                    .map(|(name, var, _)| (name, var)),
-            );
+            let vars = param_vars
+                .clone()
+                .into_iter()
+                .map(|(name, var, _)| (name, var))
+                .collect();
 
             let prototype = ir::FunctionPrototype {
                 parameters: param_vars
@@ -55,7 +41,7 @@ impl Lowerer {
                 return_type: func.ret_type,
             };
 
-            let body = self.lower_expression(func.body.0, &extended_vars);
+            let body = self.lower_expression(func.body.0, &vars);
 
             let function = ir::FunctionDefinition { prototype, body };
 

@@ -1,13 +1,7 @@
 use chumsky::prelude::*;
 
 use super::lexer::Token;
-use crate::ast::Program;
-use crate::{ast, Span, Spanned, Type};
-
-enum Definition {
-    Decl(Spanned<ast::Declaration>),
-    Func(Spanned<ast::Function>),
-}
+use crate::{ast, Span, Type};
 
 pub fn parser() -> impl Parser<Token, ast::Program, Error = Simple<Token>> + Clone {
     let ident = select! { Token::Ident(ident) => ident }.labelled("identifier");
@@ -114,12 +108,12 @@ pub fn parser() -> impl Parser<Token, ast::Program, Error = Simple<Token>> + Clo
 
         let term = and.labelled("term");
 
-        let if_then_else = just(Token::If)
+        let if_then_else = just(Token::KwIf)
             .map_with_span(|_, span: Span| span.start)
             .then(expr.clone())
-            .then_ignore(just(Token::Then))
+            .then_ignore(just(Token::KwThen))
             .then(expr.clone())
-            .then_ignore(just(Token::Else))
+            .then_ignore(just(Token::KwElse))
             .then(expr.clone())
             .map(|(((start, condition), then_branch), else_branch)| {
                 let span = start..else_branch.1.end;
@@ -131,12 +125,12 @@ pub fn parser() -> impl Parser<Token, ast::Program, Error = Simple<Token>> + Clo
                 (e, span)
             });
 
-        let let_in = just(Token::Let)
+        let let_in = just(Token::KwLet)
             .map_with_span(|_, span: Span| span.start)
             .then(ident)
             .then_ignore(just(Token::Assign))
             .then(expr.clone())
-            .then_ignore(just(Token::In))
+            .then_ignore(just(Token::KwIn))
             .then(expr.clone())
             .map(|(((start, var), bind), body)| {
                 let span = start..body.1.end;
@@ -151,24 +145,12 @@ pub fn parser() -> impl Parser<Token, ast::Program, Error = Simple<Token>> + Clo
         choice((if_then_else, let_in, term))
     });
 
-    let decl = just(Token::Decl)
-        .map_with_span(|_, span: Span| span.start)
-        .then(ident)
-        .then_ignore(just(Token::Assign))
-        .then(expr.clone())
-        .map(|((start, name), expr)| {
-            let span = start..expr.1.end;
-            let decl = ast::Declaration { name, expr };
-            (decl, span)
-        })
-        .labelled("declaration");
-
     let typ = choice((
         just(Token::KwInt).to(Type::Int),
         just(Token::KwBool).to(Type::Bool),
     ));
 
-    let func = just(Token::Func)
+    let func = just(Token::KwFunc)
         .map_with_span(|_, span: Span| span.start)
         .then(ident)
         .then(
@@ -194,18 +176,8 @@ pub fn parser() -> impl Parser<Token, ast::Program, Error = Simple<Token>> + Clo
             (func, span)
         });
 
-    choice((decl.map(Definition::Decl), func.map(Definition::Func)))
-        .repeated()
+    func.repeated()
         .collect()
-        .map(|defs: Vec<Definition>| {
-            let mut prg = Program::default();
-            for def in defs {
-                match def {
-                    Definition::Decl(d) => prg.declarations.push(d),
-                    Definition::Func(f) => prg.functions.push(f),
-                }
-            }
-            prg
-        })
+        .map(|functions| ast::Program { functions })
         .then_ignore(end())
 }

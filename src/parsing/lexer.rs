@@ -6,15 +6,20 @@ use crate::Spanned;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Token {
-    KwBool,
-    Bool(bool),
-    KwInt,
     Int(u16),
+    Bool(bool),
 
     Ident(String),
 
-    Decl,
-    Func,
+    KwBool,
+    KwInt,
+
+    KwFunc,
+    KwIf,
+    KwThen,
+    KwElse,
+    KwLet,
+    KwIn,
 
     Assign,
     Equals,
@@ -25,19 +30,10 @@ pub enum Token {
 
     ParenOpen,
     ParenClose,
-    CurlyOpen,
-    CurlyClose,
 
     Comma,
     Colon,
-    Semicolon,
     Arrow,
-
-    If,
-    Then,
-    Else,
-    Let,
-    In,
 }
 
 impl fmt::Display for Token {
@@ -48,8 +44,7 @@ impl fmt::Display for Token {
             Token::KwInt => write!(f, "int"),
             Token::Int(i) => write!(f, "{}", i),
             Token::Ident(id) => write!(f, "{}", id),
-            Token::Decl => write!(f, "decl"),
-            Token::Func => write!(f, "func"),
+            Token::KwFunc => write!(f, "func"),
             Token::Assign => write!(f, "="),
             Token::Equals => write!(f, "=="),
             Token::Less => write!(f, "<"),
@@ -58,17 +53,14 @@ impl fmt::Display for Token {
             Token::And => write!(f, "&&"),
             Token::ParenOpen => write!(f, "("),
             Token::ParenClose => write!(f, ")"),
-            Token::CurlyOpen => write!(f, "{{"),
-            Token::CurlyClose => write!(f, "}}"),
             Token::Comma => write!(f, ","),
             Token::Colon => write!(f, ":"),
-            Token::Semicolon => write!(f, ";"),
             Token::Arrow => write!(f, "->"),
-            Token::If => write!(f, "if"),
-            Token::Then => write!(f, "then"),
-            Token::Else => write!(f, "else"),
-            Token::Let => write!(f, "let"),
-            Token::In => write!(f, "in"),
+            Token::KwIf => write!(f, "if"),
+            Token::KwThen => write!(f, "then"),
+            Token::KwElse => write!(f, "else"),
+            Token::KwLet => write!(f, "let"),
+            Token::KwIn => write!(f, "in"),
         }
     }
 }
@@ -80,18 +72,15 @@ pub fn lex() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
         just("==").to(Token::Equals),
         just("&&").to(Token::And),
         just("->").to(Token::Arrow),
-        one_of("(){}=<+-,:;").map(|symb: char| match symb {
+        one_of("()=<+-,:").map(|symb: char| match symb {
             '(' => Token::ParenOpen,
             ')' => Token::ParenClose,
-            '{' => Token::CurlyOpen,
-            '}' => Token::CurlyClose,
             '=' => Token::Assign,
             '<' => Token::Less,
             '+' => Token::Plus,
             '-' => Token::Minus,
             ',' => Token::Comma,
             ':' => Token::Colon,
-            ';' => Token::Semicolon,
             _ => unreachable!(),
         }),
     ));
@@ -99,13 +88,12 @@ pub fn lex() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
     let kw_or_ident = text::ident().map(|ident: String| match ident.as_str() {
         "bool" => Token::KwBool,
         "int" => Token::KwInt,
-        "decl" => Token::Decl,
-        "func" => Token::Func,
-        "if" => Token::If,
-        "then" => Token::Then,
-        "else" => Token::Else,
-        "let" => Token::Let,
-        "in" => Token::In,
+        "func" => Token::KwFunc,
+        "if" => Token::KwIf,
+        "then" => Token::KwThen,
+        "else" => Token::KwElse,
+        "let" => Token::KwLet,
+        "in" => Token::KwIn,
         "true" => Token::Bool(true),
         "false" => Token::Bool(false),
         _ => Token::Ident(ident),
