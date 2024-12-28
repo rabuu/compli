@@ -92,7 +92,7 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    type_check(&program).ok_or(anyhow!("Type checking failed"))?;
+    type_check(&program)?;
 
     let program = lowering::lower(program)?;
     if args.mode == ExecutionMode::Ir {

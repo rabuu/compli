@@ -1,8 +1,30 @@
 use std::collections::HashMap;
 
-use crate::{ast, Type};
+use crate::{ast, Span, Spanned, Type};
 
-pub fn type_check(program: &ast::Program) -> Option<()> {
+#[derive(Debug, thiserror::Error)]
+pub enum TypeCheckError {
+    #[error("expected type `{expected}` but got `{actual}`")]
+    UnexpectedType {
+        expected: Type,
+        actual: Type,
+        span: Span,
+    },
+
+    #[error("name `{name}` is not bound")]
+    NotBound { name: ast::Ident, span: Span },
+
+    #[error("expected {expected} arguments but got {actual}")]
+    WrongNumberOfArguments {
+        expected: usize,
+        actual: usize,
+        span: Span,
+    }
+}
+
+type Result<T> = std::result::Result<T, TypeCheckError>;
+
+pub fn type_check(program: &ast::Program) -> Result<()> {
     let functions = program
         .functions
         .iter()
@@ -16,10 +38,10 @@ pub fn type_check(program: &ast::Program) -> Option<()> {
 
     let checker = TypeChecker { functions };
     for function in &program.functions {
-        checker.check_function(&function.0)?;
+        checker.check_function(function)?;
     }
 
-    Some(())
+    Ok(())
 }
 
 struct TypeChecker {
@@ -27,91 +49,116 @@ struct TypeChecker {
 }
 
 impl TypeChecker {
-    fn check_function(&self, function: &ast::Function) -> Option<()> {
+    fn check_function(&self, (function, span): &Spanned<ast::Function>) -> Result<()> {
         let vars = function.params.iter().cloned().collect();
-        let ret = self.infer_expr(&function.body.0, &vars)?;
-        assert_type_equal(ret, function.ret_type)
+        let ret = self.infer_expr(&function.body, &vars)?;
+        expect_type(function.ret_type, ret, span.clone())
     }
 
-    fn infer_expr(&self, expr: &ast::Expression, vars: &HashMap<ast::Ident, Type>) -> Option<Type> {
+    fn infer_expr(
+        &self,
+        (expr, span): &Spanned<ast::Expression>,
+        vars: &HashMap<ast::Ident, Type>,
+    ) -> Result<Type> {
         match expr {
-            ast::Expression::Int(_) => Some(Type::Int),
-            ast::Expression::Bool(_) => Some(Type::Bool),
-            ast::Expression::Var(x) => vars.get(x).copied(),
+            ast::Expression::Int(_) => Ok(Type::Int),
+            ast::Expression::Bool(_) => Ok(Type::Bool),
+            ast::Expression::Var(x) => vars.get(x).copied().ok_or_else(|| TypeCheckError::NotBound {
+                name: x.clone(),
+                span: span.clone(),
+            }),
             ast::Expression::UnaOp { kind, inner } => {
-                let arg = self.infer_expr(&inner.0, vars)?;
+                let arg = self.infer_expr(inner, vars)?;
                 match kind {
                     ast::UnaOpKind::Neg => {
-                        assert_type_equal(arg, Type::Int)?;
-                        Some(Type::Int)
+                        expect_type(Type::Int, arg, inner.1.clone())?;
+                        Ok(Type::Int)
                     }
                     ast::UnaOpKind::Not => {
-                        assert_type_equal(arg, Type::Bool)?;
-                        Some(Type::Bool)
+                        expect_type(Type::Bool, arg, inner.1.clone())?;
+                        Ok(Type::Bool)
                     }
                 }
             }
             ast::Expression::BinOp { kind, lhs, rhs } => {
-                let lhs = self.infer_expr(&lhs.0, vars)?;
-                let rhs = self.infer_expr(&rhs.0, vars)?;
+                let lhs_t = self.infer_expr(lhs, vars)?;
+                let rhs_t = self.infer_expr(rhs, vars)?;
                 match kind {
                     ast::BinOpKind::Add | ast::BinOpKind::Sub => {
-                        assert_type_equal(lhs, Type::Int)?;
-                        assert_type_equal(rhs, Type::Int)?;
-                        Some(Type::Int)
+                        expect_type(Type::Int, lhs_t, lhs.1.clone())?;
+                        expect_type(Type::Int, rhs_t, rhs.1.clone())?;
+                        Ok(Type::Int)
                     }
                     ast::BinOpKind::Equals | ast::BinOpKind::Less => {
-                        assert_type_equal(lhs, Type::Int)?;
-                        assert_type_equal(rhs, Type::Int)?;
-                        Some(Type::Bool)
+                        expect_type(Type::Int, lhs_t, lhs.1.clone())?;
+                        expect_type(Type::Int, rhs_t, rhs.1.clone())?;
+                        Ok(Type::Bool)
                     }
                     ast::BinOpKind::And => {
-                        assert_type_equal(lhs, Type::Bool)?;
-                        assert_type_equal(rhs, Type::Bool)?;
-                        Some(Type::Bool)
+                        expect_type(Type::Bool, lhs_t, lhs.1.clone())?;
+                        expect_type(Type::Bool, rhs_t, rhs.1.clone())?;
+                        Ok(Type::Bool)
                     }
                 }
             }
             ast::Expression::LetIn { var, bind, body } => {
-                let bind = self.infer_expr(&bind.0, vars)?;
+                let bind = self.infer_expr(bind, vars)?;
 
                 let mut extended_vars = vars.clone();
                 extended_vars.insert(var.clone(), bind);
 
-                self.infer_expr(&body.0, &extended_vars)
+                self.infer_expr(body, &extended_vars)
             }
             ast::Expression::IfThenElse {
                 condition,
                 then_branch,
                 else_branch,
             } => {
-                let condition = self.infer_expr(&condition.0, vars)?;
-                assert_type_equal(condition, Type::Bool)?;
+                let condition_t = self.infer_expr(condition, vars)?;
+                expect_type(Type::Bool, condition_t, condition.1.clone())?;
 
-                let then_branch = self.infer_expr(&then_branch.0, vars)?;
-                let else_branch = self.infer_expr(&else_branch.0, vars)?;
-                assert_type_equal(then_branch, else_branch)?;
+                let then_branch_t = self.infer_expr(then_branch, vars)?;
+                let else_branch_t = self.infer_expr(else_branch, vars)?;
+                expect_type(then_branch_t, else_branch_t, else_branch.1.clone())?;
 
-                Some(then_branch)
+                Ok(then_branch_t)
             }
             ast::Expression::Call { function, args } => {
-                let (params, ret) = self.functions.get(function)?;
+                let (params, ret) = self
+                    .functions
+                    .get(function)
+                    .ok_or_else(|| TypeCheckError::NotBound {
+                        name: function.clone(),
+                        span: span.clone(),
+                    })?;
 
                 if args.len() != params.len() {
-                    return None;
+                    return Err(TypeCheckError::WrongNumberOfArguments {
+                        expected: params.len(),
+                        actual: args.len(),
+                        span: span.clone(),
+                    });
                 }
 
-                for (arg, &param) in args.iter().map(|(arg, _)| arg).zip(params.iter()) {
-                    let arg = self.infer_expr(arg, vars)?;
-                    assert_type_equal(arg, param)?;
+                for (arg, &param) in args.iter().zip(params.iter()) {
+                    let arg_t = self.infer_expr(arg, vars)?;
+                    expect_type(param, arg_t, arg.1.clone())?;
                 }
 
-                Some(*ret)
+                Ok(*ret)
             }
         }
     }
 }
 
-fn assert_type_equal(typ1: Type, typ2: Type) -> Option<()> {
-    Some(typ1 == typ2).filter(|x| *x).map(|_| ())
+fn expect_type(expected: Type, actual: Type, span: Span) -> Result<()> {
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(TypeCheckError::UnexpectedType {
+            expected,
+            actual,
+            span,
+        })
+    }
 }

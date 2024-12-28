@@ -1,22 +1,6 @@
 use crate::{Spanned, Type};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Ident(String);
-
-impl From<Ident> for String {
-    fn from(value: Ident) -> Self {
-        value.0
-    }
-}
-
-impl Ident {
-    pub fn new(s: String) -> Self {
-        Self(s)
-    }
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
+pub type Ident = String;
 
 #[derive(Debug)]
 pub struct Program {
