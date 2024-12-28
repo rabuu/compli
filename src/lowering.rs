@@ -21,7 +21,7 @@ impl Lowerer {
         let mut functions = Vec::with_capacity(program.functions.len());
         let mut entry = None;
         for (func, _) in program.functions {
-            let param_vars: Vec<(String, Variable, Type)> = func
+            let param_vars: Vec<(Ident, Variable, Type)> = func
                 .params
                 .into_iter()
                 .map(|(arg, typ)| (arg, self.fresh_variable(), typ))
@@ -34,7 +34,7 @@ impl Lowerer {
                 .collect();
 
             let prototype = ir::FunctionPrototype {
-                name: func.name.clone(),
+                name: func.name.clone().into(),
                 parameters: param_vars
                     .into_iter()
                     .map(|(_, var, typ)| (var, typ))
@@ -64,7 +64,7 @@ impl Lowerer {
     fn lower_expression(
         &mut self,
         exp: Expression,
-        vars: &HashMap<String, Variable>,
+        vars: &HashMap<Ident, Variable>,
     ) -> ir::Expression {
         match exp {
             Expression::Int(i) => ir::Expression::Direct(ir::Value::Number(i as i32)),
@@ -120,7 +120,7 @@ impl Lowerer {
                     .collect();
 
                 ir::Expression::FunctionCall {
-                    fn_name: function,
+                    fn_name: function.into(),
                     args,
                 }
             }

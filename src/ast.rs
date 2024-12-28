@@ -1,6 +1,22 @@
 use crate::{Spanned, Type};
 
-type Ident = String;
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Ident(String);
+
+impl From<Ident> for String {
+    fn from(value: Ident) -> Self {
+        value.0
+    }
+}
+
+impl Ident {
+    pub fn new(s: String) -> Self {
+        Self(s)
+    }
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
 
 #[derive(Debug)]
 pub struct Program {
@@ -19,7 +35,7 @@ pub struct Function {
 pub enum Expression {
     Int(u16),
     Bool(bool),
-    Var(String),
+    Var(Ident),
 
     UnaOp {
         kind: UnaOpKind,

@@ -4,7 +4,7 @@ use super::lexer::Token;
 use crate::{ast, Span, Type};
 
 pub fn parser() -> impl Parser<Token, ast::Program, Error = Simple<Token>> + Clone {
-    let ident = select! { Token::Ident(ident) => ident }.labelled("identifier");
+    let ident = select! { Token::Ident(ident) => ast::Ident::new(ident) }.labelled("identifier");
 
     let expr = recursive(|expr| {
         let val = select! {
