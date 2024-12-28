@@ -61,7 +61,9 @@ pub struct BinaryOperation {
 #[derive(Debug)]
 pub enum BinaryOperationKind {
     Add,
-    Cmp,
+    Sub,
+    Equals,
+    Less,
     And,
 }
 

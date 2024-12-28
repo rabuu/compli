@@ -83,9 +83,10 @@ impl Lowerer {
                 ir::Expression::BinaryOperation(Box::new(ir::BinaryOperation {
                     kind: match kind {
                         BinOpKind::Add => ir::BinaryOperationKind::Add,
-                        BinOpKind::Less => ir::BinaryOperationKind::Cmp,
+                        BinOpKind::Sub => ir::BinaryOperationKind::Sub,
+                        BinOpKind::Equals => ir::BinaryOperationKind::Equals,
+                        BinOpKind::Less => ir::BinaryOperationKind::Less,
                         BinOpKind::And => ir::BinaryOperationKind::And,
-                        _ => todo!(),
                     },
                     lhs,
                     rhs,

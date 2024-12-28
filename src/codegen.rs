@@ -121,9 +121,16 @@ impl<'ctx> Codegen<'ctx> {
                     ir::BinaryOperationKind::Add => {
                         self.builder.build_int_add(lhs, rhs, "add").unwrap()
                     }
-                    ir::BinaryOperationKind::Cmp => self
+                    ir::BinaryOperationKind::Sub => {
+                        self.builder.build_int_sub(lhs, rhs, "sub").unwrap()
+                    }
+                    ir::BinaryOperationKind::Equals => self
                         .builder
-                        .build_int_compare(inkwell::IntPredicate::SLT, lhs, rhs, "and")
+                        .build_int_compare(inkwell::IntPredicate::EQ, lhs, rhs, "equ")
+                        .unwrap(),
+                    ir::BinaryOperationKind::Less => self
+                        .builder
+                        .build_int_compare(inkwell::IntPredicate::SLT, lhs, rhs, "lt")
                         .unwrap(),
                     ir::BinaryOperationKind::And => {
                         self.builder.build_and(lhs, rhs, "and").unwrap()
