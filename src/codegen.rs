@@ -152,16 +152,22 @@ impl<'ctx> Codegen<'ctx> {
                 let then_value = self.compile_expression(&c.then_branch, bindings);
                 self.builder.build_unconditional_branch(cont_bb).unwrap();
 
+                // NOTE: Important! Update bb for phi merge because the expression may change it
+                let updated_then_bb = self.builder.get_insert_block().unwrap();
+
                 self.builder.position_at_end(else_bb);
                 let else_value = self.compile_expression(&c.else_branch, bindings);
                 self.builder.build_unconditional_branch(cont_bb).unwrap();
+
+                // NOTE: Important! Update bb for phi merge because the expression may change it
+                let updated_else_bb = self.builder.get_insert_block().unwrap();
 
                 self.builder.position_at_end(cont_bb);
                 let phi = self
                     .builder
                     .build_phi(self.context.i32_type(), "cond-phi")
                     .unwrap();
-                phi.add_incoming(&[(&then_value, then_bb), (&else_value, else_bb)]);
+                phi.add_incoming(&[(&then_value, updated_then_bb), (&else_value, updated_else_bb)]);
 
                 phi.as_any_value_enum().into_int_value()
             }
