@@ -17,7 +17,7 @@ use inkwell::targets::{
 };
 use inkwell::OptimizationLevel;
 
-use compli::{codegen, lowering, parsing};
+use compli::{codegen, lowering, parsing, type_check};
 
 #[derive(Debug, Parser)]
 #[command(version, about = None, long_about = None)]
@@ -91,6 +91,8 @@ fn main() -> Result<()> {
         println!("{program:#?}");
         return Ok(());
     }
+
+    type_check(&program).ok_or(anyhow!("Type checking failed"))?;
 
     let program = lowering::lower(program)?;
     if args.mode == ExecutionMode::Ir {
