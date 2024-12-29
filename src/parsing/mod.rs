@@ -104,6 +104,9 @@ fn build_error(err: Simple<String>) -> ParsingError {
                 span: span.clone(),
             }
         }
-        SimpleReason::Custom(msg) => ParsingError::Custom { msg: msg.clone(), span: err.span() }
+        SimpleReason::Custom(msg) => ParsingError::Custom {
+            msg: msg.clone(),
+            span: err.span(),
+        },
     }
 }

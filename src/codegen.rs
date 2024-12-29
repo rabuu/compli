@@ -27,7 +27,11 @@ struct Codegen<'ctx> {
 }
 
 impl<'ctx> Codegen<'ctx> {
-    fn new(context: &'ctx Context, skeleton: &[ir::FunctionPrototype], entry_expr: &ir::Expression) -> Self {
+    fn new(
+        context: &'ctx Context,
+        skeleton: &[ir::FunctionPrototype],
+        entry_expr: &ir::Expression,
+    ) -> Self {
         let builder = context.create_builder();
         let module = context.create_module("compliModule");
 
@@ -167,7 +171,10 @@ impl<'ctx> Codegen<'ctx> {
                     .builder
                     .build_phi(self.context.i32_type(), "cond-phi")
                     .unwrap();
-                phi.add_incoming(&[(&then_value, updated_then_bb), (&else_value, updated_else_bb)]);
+                phi.add_incoming(&[
+                    (&then_value, updated_then_bb),
+                    (&else_value, updated_else_bb),
+                ]);
 
                 phi.as_any_value_enum().into_int_value()
             }
