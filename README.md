@@ -3,7 +3,9 @@ My compiler for PLI, the "programming language implementations" course.
 
 This is a work in progress.
 
-## Syntax of compli
+## Quickstart
+
+### Syntax of compli
 ```
 // see examples/example.compli
 
@@ -22,9 +24,9 @@ func bar(cond: bool, n: int): int = (
 )
 ```
 
-## Building a program
+### Building a program
 ```sh
-compli INPUT-FILE.compli
+compli input.compli
 ```
 This produces a `myModule.o` with the compiled object code.
 
@@ -32,6 +34,16 @@ The compiler supports a few CLI options to customize its execution.
 You can see all the options with the following command:
 ```sh
 compli --help
+```
+
+### Runtime & linking
+To get an executable you have to compile the [runtime](./rts/rt.c) and link it with the compiled object file.
+
+For example with `gcc`:
+```sh
+compli input.compli -o compli.o
+gcc rts/rt.c compli.o -o my-executable
+./my-executable
 ```
 
 ## The compiler pipeline
@@ -42,6 +54,14 @@ The rough pipeline steps that a program takes to get from source code to object 
 4. [Code generation](./src/codegen.rs) (IR to LLVM IR)
 
 ## Dependencies
+
+### LLVM
+You need to have **LLVM 18** installed. You can check by running:
+```sh
+llvm-config --version
+```
+
+### Crates
 I used some awesome libraries for this compiler. The most interesting ones are:
 - [inkwell](https://github.com/TheDan64/inkwell), a LLVM wrapper and building library
 - [chumsky](https://github.com/zesterer/chumsky), a text parsing library that uses parser combinators
