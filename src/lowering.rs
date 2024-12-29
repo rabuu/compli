@@ -32,7 +32,7 @@ impl Lowerer {
                 .collect();
 
             let prototype = ir::FunctionPrototype {
-                name: func.name.clone().into(),
+                name: func.name.clone(),
                 parameters: param_vars
                     .into_iter()
                     .map(|(_, var, typ)| (var, typ))
@@ -119,7 +119,7 @@ impl Lowerer {
                     .collect();
 
                 ir::Expression::FunctionCall {
-                    fn_name: function.into(),
+                    fn_name: function,
                     args,
                 }
             }
