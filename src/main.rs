@@ -14,9 +14,8 @@ use tracing_subscriber::EnvFilter;
 
 use inkwell::context::Context;
 use inkwell::targets::{
-    CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine,
+    FileType, InitializationConfig, Target, TargetMachine, TargetMachineOptions,
 };
-use inkwell::OptimizationLevel;
 
 use compli::{codegen, lowering, parsing, type_checking};
 
@@ -72,8 +71,9 @@ enum AppError {
         context: Option<String>,
     },
 
-    #[error("Couldn't initialize target machine")]
-    NoTargetMachine,
+    #[error("Couldn't initialize target: {triple}")]
+    #[diagnostic(help("Only `x86_64-pc-linux-gnu` is tested"))]
+    BadTarget { triple: String },
 
     #[error("Failed to parse the source code file")]
     ParsingError(#[related] Vec<parsing::ParsingError>),
@@ -126,20 +126,16 @@ fn main() -> Result<()> {
     /* INITIALIZE LLVM TARGET MACHINE */
 
     Target::initialize_x86(&InitializationConfig::default());
-    let opt = OptimizationLevel::Default;
-    let reloc = RelocMode::Default;
-    let model = CodeModel::Default;
-    let target = Target::from_name("x86-64").unwrap();
+    let triple = TargetMachine::get_default_triple();
+    let target = Target::from_triple(&triple).map_err(|_| AppError::BadTarget {
+        triple: triple.to_string(),
+    })?;
+    let options = TargetMachineOptions::default();
     let target_machine = target
-        .create_target_machine(
-            &TargetMachine::get_default_triple(),
-            "x86-64",
-            "+avx2",
-            opt,
-            reloc,
-            model,
-        )
-        .ok_or(AppError::NoTargetMachine)?;
+        .create_target_machine_from_options(&triple, options)
+        .ok_or(AppError::BadTarget {
+            triple: triple.to_string(),
+        })?;
 
     /* RUN COMPILER PIPELINE */
 
