@@ -118,7 +118,7 @@ fn main() -> Result<()> {
 
     // validate output file
     let output_file = args.output_file.unwrap_or(PathBuf::from("myModule.o"));
-    if !output_file.is_file() {
+    if output_file.exists() && !output_file.is_file() {
         return Err(AppError::BadOutput {
             file_path: output_file.clone(),
             context: Some(String::from("This is no file")),
