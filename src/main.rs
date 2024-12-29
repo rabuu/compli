@@ -1,10 +1,12 @@
 use std::fs;
 use std::path::PathBuf;
 
-use anyhow::{anyhow, bail, Result};
-use ariadne::sources;
+use compli::parsing::ParsingError;
+use miette::{bail, miette, Diagnostic, IntoDiagnostic, Result};
+
 use clap::{Parser, ValueEnum};
 
+use thiserror::Error;
 use tracing::level_filters::LevelFilter;
 use tracing::{info, warn};
 use tracing_subscriber::layer::SubscriberExt;
@@ -49,6 +51,16 @@ enum ExecutionMode {
     Ir,
 }
 
+#[derive(Debug, Error, Diagnostic)]
+#[error("Oops, something went wrong")]
+struct AppError {
+    #[related]
+    errs: Vec<ParsingError>,
+
+    #[source_code]
+    code: String,
+}
+
 fn main() -> Result<()> {
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer().without_time())
@@ -65,25 +77,17 @@ fn main() -> Result<()> {
         bail!("No proper input file: {:?}", args.input_file);
     }
 
-    let source = fs::read_to_string(&args.input_file)?;
-    let input_file = args
-        .input_file
-        .to_str()
-        .ok_or(anyhow!("Bad input path"))?
-        .to_string();
-
-    let program = match parsing::parse(&source, input_file.clone()) {
+    let source = fs::read_to_string(&args.input_file).into_diagnostic()?;
+    let program = match parsing::parse(&source) {
         Ok(program) => {
             info!("Parsing successful");
             program
         }
         Err(reports) => {
-            for report in reports {
-                report
-                    .eprint(sources([(input_file.clone(), &source)]))
-                    .unwrap();
-            }
-            bail!("Parsing failed");
+            return Err(AppError {
+                errs: reports,
+                code: source,
+            }.into())
         }
     };
 
@@ -92,9 +96,9 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    type_check(&program)?;
+    type_check(&program).into_diagnostic()?;
 
-    let program = lowering::lower(program)?;
+    let program = lowering::lower(program).unwrap();
     if args.mode == ExecutionMode::Ir {
         println!("{program:#?}");
         return Ok(());

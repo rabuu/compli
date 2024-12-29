@@ -1,4 +1,6 @@
-use ariadne::{Color, Fmt, Label, Report, ReportKind};
+use miette::Diagnostic;
+use thiserror::Error;
+
 use chumsky::error::SimpleReason;
 use chumsky::{prelude::*, Stream};
 
@@ -7,7 +9,39 @@ use crate::{ast, Span};
 mod lexer;
 mod parser;
 
-pub fn parse(source: &str, filename: String) -> Result<ast::Program, Vec<Report<(String, Span)>>> {
+#[derive(Debug, Error, Diagnostic)]
+pub enum ParsingError {
+    #[error("Found an unclosed delimiter: {delimiter}")]
+    #[diagnostic(help("Must be closed before: {must_close_before}"))]
+    UnclosedDelimiter {
+        delimiter: String,
+        must_close_before: String,
+
+        #[label("unclosed delimiter")]
+        span: Span,
+    },
+
+    #[error("Encountered unexpected input: {token}")]
+    UnexpectedInput {
+        token: String,
+
+        #[help]
+        expected: Option<String>,
+
+        #[label("here")]
+        span: Span,
+    },
+
+    #[error("{msg}")]
+    Custom {
+        msg: String,
+
+        #[label("here")]
+        span: Span,
+    },
+}
+
+pub fn parse(source: &str) -> Result<ast::Program, Vec<ParsingError>> {
     let (tokens, lex_errs) = lexer::lex().parse_recovery(source);
 
     let parse_errs = if let Some(tokens) = tokens {
@@ -27,82 +61,49 @@ pub fn parse(source: &str, filename: String) -> Result<ast::Program, Vec<Report<
     let errors = lex_errs
         .into_iter()
         .map(|e| e.map(|c| c.to_string()))
-        .chain(parse_errs.into_iter().map(|e| e.map(|tok| tok.to_string())));
+        .chain(parse_errs.into_iter().map(|e| e.map(|tok| tok.to_string())))
+        .map(build_error)
+        .collect();
 
-    Err(build_reports(errors, filename))
+    Err(errors)
 }
 
-fn build_reports<E>(errors: E, filename: String) -> Vec<Report<'static, (String, Span)>>
-where
-    E: Iterator<Item = Simple<String>>,
-{
-    let mut reports = Vec::new();
-    for e in errors {
-        let report = Report::build(ReportKind::Error, (filename.clone(), e.span()));
+fn build_error(err: Simple<String>) -> ParsingError {
+    let eof = String::from("end of file");
+    match err.reason() {
+        SimpleReason::Unexpected => {
+            let token = err.found().unwrap_or(&eof);
+            let expected = if err.expected().len() == 0 {
+                None
+            } else {
+                let toks: Vec<_> = err
+                    .expected()
+                    .map(|tok| match tok {
+                        Some(tok) => tok.to_string(),
+                        None => eof.clone(),
+                    })
+                    .collect();
 
-        let report = match e.reason() {
-            SimpleReason::Unclosed { span, delimiter } => report
-                .with_message(format!(
-                    "Unclosed delimiter {}",
-                    delimiter.fg(Color::Yellow)
-                ))
-                .with_label(
-                    Label::new((filename.clone(), span.clone()))
-                        .with_message(format!(
-                            "Unclosed delimiter {}",
-                            delimiter.fg(Color::Yellow)
-                        ))
-                        .with_color(Color::Yellow),
-                )
-                .with_label(
-                    Label::new((filename.clone(), span.clone()))
-                        .with_message(format!(
-                            "Must be closed before this {}",
-                            e.found()
-                                .unwrap_or(&"end of file".to_string())
-                                .fg(Color::Red)
-                        ))
-                        .with_color(Color::Red),
-                ),
-            SimpleReason::Unexpected => report
-                .with_message(format!(
-                    "{}, expected {}",
-                    if e.found().is_some() {
-                        "Unexpected token in input"
-                    } else {
-                        "Unexpected end of input"
-                    },
-                    if e.expected().len() == 0 {
-                        "something else".to_string()
-                    } else {
-                        e.expected()
-                            .map(|expected| match expected {
-                                Some(expected) => expected.to_string(),
-                                None => "end of input".to_string(),
-                            })
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    }
-                ))
-                .with_label(
-                    Label::new((filename.clone(), e.span()))
-                        .with_message(format!(
-                            "Unexpected token {}",
-                            e.found()
-                                .unwrap_or(&"end of file".to_string())
-                                .fg(Color::Red)
-                        ))
-                        .with_color(Color::Red),
-                ),
-            SimpleReason::Custom(msg) => report.with_message(msg).with_label(
-                Label::new((filename.clone(), e.span()))
-                    .with_message(format!("{}", msg.fg(Color::Red)))
-                    .with_color(Color::Red),
-            ),
-        };
+                let mut help_string = toks.join(", ");
+                help_string.insert_str(0, "Expected one of: ");
 
-        reports.push(report.finish());
+                Some(help_string)
+            };
+
+            ParsingError::UnexpectedInput {
+                token: token.clone(),
+                expected,
+                span: err.span(),
+            }
+        }
+        SimpleReason::Unclosed { span, delimiter } => {
+            let must_close_before = err.found().unwrap_or(&eof);
+            ParsingError::UnclosedDelimiter {
+                delimiter: delimiter.clone(),
+                must_close_before: must_close_before.clone(),
+                span: span.clone(),
+            }
+        }
+        SimpleReason::Custom(msg) => ParsingError::Custom { msg: msg.clone(), span: err.span() }
     }
-
-    reports
 }

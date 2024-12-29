@@ -1,12 +1,10 @@
 use std::collections::HashMap;
 
-use anyhow::{anyhow, Result};
-
 use crate::ast::*;
 use crate::ir;
 use crate::{Type, Variable};
 
-pub fn lower(program: Program) -> Result<ir::Program> {
+pub fn lower(program: Program) -> Option<ir::Program> {
     let mut lowerer = Lowerer::default();
     lowerer.lower_program(program)
 }
@@ -17,7 +15,7 @@ struct Lowerer {
 }
 
 impl Lowerer {
-    fn lower_program(&mut self, program: Program) -> Result<ir::Program> {
+    fn lower_program(&mut self, program: Program) -> Option<ir::Program> {
         let mut functions = Vec::with_capacity(program.functions.len());
         let mut entry = None;
         for (func, _) in program.functions {
@@ -55,8 +53,8 @@ impl Lowerer {
             }
         }
 
-        Ok(ir::Program {
-            entry: entry.ok_or(anyhow!("No main function provided"))?,
+        Some(ir::Program {
+            entry: entry?,
             functions,
         })
     }
