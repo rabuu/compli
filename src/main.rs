@@ -47,7 +47,7 @@ enum ExecutionMode {
     Compile,
 
     /// Inspect the AST of the parsed source code
-    Parse,
+    Ast,
 
     /// Inspect the IR of the lowered AST
     Ir,
@@ -154,7 +154,7 @@ fn main() -> Result<()> {
         .map_err(wrap_with_source)?;
     info!("Parsing of source code file was successful");
 
-    if args.mode == ExecutionMode::Parse {
+    if args.mode == ExecutionMode::Ast {
         program.pretty_print().map_err(AppError::GenericIoError)?;
         return Ok(());
     }
