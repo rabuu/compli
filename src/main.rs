@@ -36,6 +36,10 @@ struct CliArgs {
     #[arg(short, long)]
     #[arg(default_value_t = ExecutionMode::Compile)]
     mode: ExecutionMode,
+
+    /// Don't log progress
+    #[arg(short, long)]
+    quiet: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -80,27 +84,34 @@ enum AppError {
 }
 
 fn main() -> Result<()> {
+    // parse CLI arguments
+    let args = CliArgs::parse();
+
     // initialize logger
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer().without_time())
         .with(
             EnvFilter::builder()
-                .with_default_directive(LevelFilter::WARN.into())
+                .with_default_directive(
+                    if args.quiet {
+                        LevelFilter::OFF
+                    } else {
+                        LevelFilter::INFO
+                    }
+                    .into(),
+                )
                 .from_env_lossy(),
         )
         .init();
 
     /* HANDLE INPUT */
 
-    // gather CLI arguments
-    let args = CliArgs::parse();
-
     // read input file
     let source = fs::read_to_string(&args.input_file).map_err(|e| AppError::BadInput {
         file_path: args.input_file.clone(),
         context: e.to_string(),
     })?;
-    info!("Reading of input file {:?} successful", args.input_file);
+    info!("Reading of input file {:?} was successful", args.input_file);
 
     // validate output file
     let output_file = args.output_file.unwrap_or(PathBuf::from("myModule.o"));
@@ -168,7 +179,6 @@ fn main() -> Result<()> {
     let context = Context::create();
     let module = codegen::compile(&context, program); // TODO: error handling
     info!("Code generation was successful");
-
 
     /* WRITE OUTPUT FILE */
 
