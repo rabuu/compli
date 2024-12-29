@@ -1,14 +1,28 @@
 [package]
 name = "compli"
 version = "0.1.0"
+authors = ["Rasmus Buurman <rasmus@rbuurman.de>"]
 edition = "2021"
+description = "My compiler for PLI"
+readme = "README.md"
+license = "MIT"
 
 [dependencies]
-chumsky = "0.9.3"
-clap = { version = "4.5.23", features = ["derive"] }
-inkwell = { version = "0.5.0", features = ["llvm18-0"] }
-llvm-sys-180 = { package = "llvm-sys", version = "180", features = ["prefer-static"] }
-miette = { version = "7.4.0", features = ["fancy"] }
+
+# error handling
 thiserror = "2.0.9"
+miette = { version = "7.4.0", features = ["fancy"] }
+
+# logging
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+
+# CLI parsing
+clap = { version = "4.5.23", features = ["derive"] }
+
+# parser combinators library
+chumsky = "0.9.3"
+
+# LLVM code generation
+inkwell = { version = "0.5.0", features = ["llvm18-0"] }
+llvm-sys-180 = { package = "llvm-sys", version = "180", features = ["prefer-static"] }
