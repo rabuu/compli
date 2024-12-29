@@ -1,0 +1,13 @@
+func main(): int = foo(3) + bar(true, 3)
+
+func foo(x: int): int = (
+    let double = x + x in (
+        if double < 10
+        then double
+        else x
+    )
+)
+
+func bar(cond: bool, n: int): int = (
+    if cond then n else 0
+)
