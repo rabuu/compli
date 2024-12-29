@@ -1,8 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use compli::parsing::ParsingError;
-use miette::{bail, miette, Diagnostic, IntoDiagnostic, Result};
+use miette::{Diagnostic, Report, Result};
 
 use clap::{Parser, ValueEnum};
 
@@ -15,11 +14,11 @@ use tracing_subscriber::EnvFilter;
 
 use inkwell::context::Context;
 use inkwell::targets::{
-    CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetTriple,
+    CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine,
 };
 use inkwell::OptimizationLevel;
 
-use compli::{codegen, lowering, parsing, type_check};
+use compli::{codegen, lowering, parsing, type_checking};
 
 #[derive(Debug, Parser)]
 #[command(version, about = None, long_about = None)]
@@ -52,16 +51,36 @@ enum ExecutionMode {
 }
 
 #[derive(Debug, Error, Diagnostic)]
-#[error("Oops, something went wrong")]
-struct AppError {
-    #[related]
-    errs: Vec<ParsingError>,
+enum AppError {
+    #[error("Failed to read input file: {file_path:?}")]
+    BadInput {
+        file_path: PathBuf,
 
-    #[source_code]
-    code: String,
+        #[help]
+        context: String,
+    },
+
+    #[error("Couldn't write to output file: {file_path:?}")]
+    BadOutput {
+        file_path: PathBuf,
+
+        #[help]
+        context: Option<String>,
+    },
+
+    #[error("Couldn't initialize target machine")]
+    NoTargetMachine,
+
+    #[error("Failed to parse the source code file")]
+    ParsingError(#[related] Vec<parsing::ParsingError>),
+
+    #[error("Type checking of the source code failed")]
+    #[diagnostic(transparent)]
+    TypeCheckError(#[from] type_checking::TypeCheckError),
 }
 
 fn main() -> Result<()> {
+    // initialize logger
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer().without_time())
         .with(
@@ -71,68 +90,101 @@ fn main() -> Result<()> {
         )
         .init();
 
+    /* HANDLE INPUT */
+
+    // gather CLI arguments
     let args = CliArgs::parse();
 
-    if !args.input_file.is_file() {
-        bail!("No proper input file: {:?}", args.input_file);
-    }
+    // read input file
+    let source = fs::read_to_string(&args.input_file).map_err(|e| AppError::BadInput {
+        file_path: args.input_file.clone(),
+        context: e.to_string(),
+    })?;
+    info!("Reading of input file {:?} successful", args.input_file);
 
-    let source = fs::read_to_string(&args.input_file).into_diagnostic()?;
-    let program = match parsing::parse(&source) {
-        Ok(program) => {
-            info!("Parsing successful");
-            program
+    // validate output file
+    let output_file = args.output_file.unwrap_or(PathBuf::from("myModule.o"));
+    if !output_file.is_file() {
+        return Err(AppError::BadOutput {
+            file_path: output_file.clone(),
+            context: Some(String::from("This is no file")),
         }
-        Err(reports) => {
-            return Err(AppError {
-                errs: reports,
-                code: source,
-            }.into())
-        }
-    };
-
-    if args.mode == ExecutionMode::Parse {
-        println!("{program:#?}");
-        return Ok(());
+        .into());
     }
 
-    type_check(&program).into_diagnostic()?;
-
-    let program = lowering::lower(program).unwrap();
-    if args.mode == ExecutionMode::Ir {
-        println!("{program:#?}");
-        return Ok(());
-    }
-
-    let context = Context::create();
-    let module = codegen::compile(&context, program);
+    /* INITIALIZE LLVM TARGET MACHINE */
 
     Target::initialize_x86(&InitializationConfig::default());
-
     let opt = OptimizationLevel::Default;
     let reloc = RelocMode::Default;
     let model = CodeModel::Default;
     let target = Target::from_name("x86-64").unwrap();
     let target_machine = target
         .create_target_machine(
-            &TargetTriple::create("x86_64-pc-linux-gnu"),
+            &TargetMachine::get_default_triple(),
             "x86-64",
             "+avx2",
             opt,
             reloc,
             model,
         )
-        .unwrap();
+        .ok_or(AppError::NoTargetMachine)?;
 
-    let out = args.output_file.unwrap_or(PathBuf::from("myModule.o"));
+    /* RUN COMPILER PIPELINE */
 
-    if out.exists() {
-        warn!("{:?} already exists and will be overridden", &out);
+    // helper function to build error messages
+    let wrap_with_source = |err: AppError| {
+        let report: Report = err.into();
+        report.with_source_code(source.clone())
+    };
+
+    // run parser
+    let program = parsing::parse(&source)
+        .map_err(AppError::ParsingError)
+        .map_err(wrap_with_source)?;
+    info!("Parsing of source code file was successful");
+
+    if args.mode == ExecutionMode::Parse {
+        println!("{program:#?}");
+        return Ok(());
     }
 
+    // run type checker
+    type_checking::type_check(&program)
+        .map_err(AppError::TypeCheckError)
+        .map_err(wrap_with_source)?;
+    info!("Type checking was successful");
+
+    // run lowering
+    let program = lowering::lower(program).unwrap(); // TODO: error handling
+    info!("Lowering to intermediate representation was successful");
+
+    if args.mode == ExecutionMode::Ir {
+        println!("{program:#?}");
+        return Ok(());
+    }
+
+    // run codegen
+    let context = Context::create();
+    let module = codegen::compile(&context, program); // TODO: error handling
+    info!("Code generation was successful");
+
+
+    /* WRITE OUTPUT FILE */
+
+    // warn if existing output file gets overridden
+    if output_file.exists() {
+        warn!("{:?} already exists and will be overridden", &output_file);
+    }
+
+    // actually write output file
     target_machine
-        .write_to_file(&module, FileType::Object, &out)
-        .or_else(|_| bail!("Failed to write to file"))?;
+        .write_to_file(&module, FileType::Object, &output_file)
+        .map_err(|_| AppError::BadOutput {
+            file_path: output_file.clone(),
+            context: None,
+        })?;
+    info!("Wrote object file to {output_file:?} successfully");
 
     Ok(())
 }

@@ -3,7 +3,7 @@ pub mod codegen;
 mod ir;
 pub mod lowering;
 pub mod parsing;
-mod type_checking;
+pub mod type_checking;
 
 pub use type_checking::type_check;
 

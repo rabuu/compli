@@ -1,25 +1,37 @@
 use std::collections::HashMap;
 
+use miette::Diagnostic;
+use thiserror::Error;
+
 use crate::{ast, Span, Spanned, Type};
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Error, Diagnostic)]
 pub enum TypeCheckError {
-    #[error("expected type `{expected}` but got `{actual}`")]
+    #[error("Expected an expression of type `{expected}` but got `{actual}`")]
     UnexpectedType {
         expected: Type,
         actual: Type,
+
+        #[label("this expression")]
         span: Span,
     },
 
-    #[error("name `{name}` is not bound")]
-    NotBound { name: ast::Ident, span: Span },
+    #[error("The name `{name}` is not bound")]
+    NotBound {
+        name: ast::Ident,
 
-    #[error("expected {expected} arguments but got {actual}")]
+        #[label("unknown name")]
+        span: Span,
+    },
+
+    #[error("Expected {expected} arguments but got {actual}")]
     WrongNumberOfArguments {
         expected: usize,
         actual: usize,
+
+        #[label("this function call")]
         span: Span,
-    }
+    },
 }
 
 type Result<T> = std::result::Result<T, TypeCheckError>;
@@ -63,10 +75,14 @@ impl TypeChecker {
         match expr {
             ast::Expression::Int(_) => Ok(Type::Int),
             ast::Expression::Bool(_) => Ok(Type::Bool),
-            ast::Expression::Var(x) => vars.get(x).copied().ok_or_else(|| TypeCheckError::NotBound {
-                name: x.clone(),
-                span: span.clone(),
-            }),
+            ast::Expression::Var(x) => {
+                vars.get(x)
+                    .copied()
+                    .ok_or_else(|| TypeCheckError::NotBound {
+                        name: x.clone(),
+                        span: span.clone(),
+                    })
+            }
             ast::Expression::UnaOp { kind, inner } => {
                 let arg = self.infer_expr(inner, vars)?;
                 match kind {
@@ -124,13 +140,13 @@ impl TypeChecker {
                 Ok(then_branch_t)
             }
             ast::Expression::Call { function, args } => {
-                let (params, ret) = self
-                    .functions
-                    .get(function)
-                    .ok_or_else(|| TypeCheckError::NotBound {
-                        name: function.clone(),
-                        span: span.clone(),
-                    })?;
+                let (params, ret) =
+                    self.functions
+                        .get(function)
+                        .ok_or_else(|| TypeCheckError::NotBound {
+                            name: function.clone(),
+                            span: span.clone(),
+                        })?;
 
                 if args.len() != params.len() {
                     return Err(TypeCheckError::WrongNumberOfArguments {
