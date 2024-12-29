@@ -81,6 +81,9 @@ enum AppError {
     #[error("Type checking of the source code failed")]
     #[diagnostic(transparent)]
     TypeCheckError(#[from] type_checking::TypeCheckError),
+
+    #[error(transparent)]
+    GenericIoError(std::io::Error),
 }
 
 fn main() -> Result<()> {
@@ -152,7 +155,7 @@ fn main() -> Result<()> {
     info!("Parsing of source code file was successful");
 
     if args.mode == ExecutionMode::Parse {
-        println!("{program:#?}");
+        program.pretty_print().map_err(AppError::GenericIoError)?;
         return Ok(());
     }
 

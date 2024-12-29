@@ -26,3 +26,6 @@ chumsky = "0.9.3"
 # LLVM code generation
 inkwell = { version = "0.5.0", features = ["llvm18-0"] }
 llvm-sys-180 = { package = "llvm-sys", version = "180", features = ["prefer-static"] }
+
+# pretty printing of tree structures
+ptree = { version = "0.5.2", default-features = false }
