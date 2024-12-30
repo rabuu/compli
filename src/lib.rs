@@ -5,10 +5,10 @@ mod lowering;
 mod parsing;
 mod type_checking;
 
-pub use codegen::{CodegenError, compile};
-pub use lowering::{LoweringError, lower};
-pub use parsing::{ParsingError, parse};
-pub use type_checking::{TypeCheckError, type_check};
+pub use codegen::{compile, CodegenError};
+pub use lowering::{lower, LoweringError};
+pub use parsing::{parse, ParsingError};
+pub use type_checking::{type_check, TypeCheckError};
 
 type Span = std::ops::Range<usize>;
 type Spanned<T> = (T, Span);
