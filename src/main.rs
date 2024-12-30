@@ -86,8 +86,8 @@ enum AppError {
     #[diagnostic(transparent)]
     LoweringError(#[from] lowering::LoweringError),
 
-    #[error(transparent)]
-    GenericIoError(std::io::Error),
+    #[error("An I/O operation failed")]
+    GenericIoError(#[from] std::io::Error),
 }
 
 fn main() -> Result<()> {
