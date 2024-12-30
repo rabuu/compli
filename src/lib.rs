@@ -1,11 +1,14 @@
-pub mod ast;
-pub mod codegen;
+mod ast;
+mod codegen;
 mod ir;
-pub mod lowering;
-pub mod parsing;
-pub mod type_checking;
+mod lowering;
+mod parsing;
+mod type_checking;
 
-pub use type_checking::type_check;
+pub use codegen::{CodegenError, compile};
+pub use lowering::{LoweringError, lower};
+pub use parsing::{ParsingError, parse};
+pub use type_checking::{TypeCheckError, type_check};
 
 type Span = std::ops::Range<usize>;
 type Spanned<T> = (T, Span);

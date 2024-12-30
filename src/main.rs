@@ -2,10 +2,10 @@ use std::fs;
 use std::path::PathBuf;
 
 use miette::{Diagnostic, Report, Result};
+use thiserror::Error;
 
 use clap::{Parser, ValueEnum};
 
-use thiserror::Error;
 use tracing::level_filters::LevelFilter;
 use tracing::{info, warn};
 use tracing_subscriber::layer::SubscriberExt;
@@ -17,7 +17,9 @@ use inkwell::targets::{
     FileType, InitializationConfig, Target, TargetMachine, TargetMachineOptions,
 };
 
-use compli::{codegen, lowering, parsing, type_checking};
+use compli::{
+    compile, lower, parse, type_check, CodegenError, LoweringError, ParsingError, TypeCheckError,
+};
 
 #[derive(Debug, Parser)]
 #[command(version, about = None, long_about = None)]
@@ -76,19 +78,19 @@ enum AppError {
     BadTarget { triple: String },
 
     #[error("Failed to parse the source code file")]
-    ParsingError(#[related] Vec<parsing::ParsingError>),
+    ParsingError(#[related] Vec<ParsingError>),
 
     #[error("Type checking of the source code failed")]
     #[diagnostic(transparent)]
-    TypeCheckError(#[from] type_checking::TypeCheckError),
+    TypeCheckError(#[from] TypeCheckError),
 
     #[error("Lowering of the AST to IR failed")]
     #[diagnostic(transparent)]
-    LoweringError(#[from] lowering::LoweringError),
+    LoweringError(#[from] LoweringError),
 
     #[error("Code generation failed")]
     #[diagnostic(transparent)]
-    CodegenError(#[from] codegen::CodegenError),
+    CodegenError(#[from] CodegenError),
 
     #[error("An I/O operation failed")]
     GenericIoError(#[from] std::io::Error),
@@ -157,7 +159,7 @@ fn main() -> Result<()> {
     };
 
     // run parser
-    let program = parsing::parse(&source)
+    let program = parse(&source)
         .map_err(AppError::ParsingError)
         .map_err(wrap_with_source)?;
     info!("Parsing of source code file was successful");
@@ -168,13 +170,13 @@ fn main() -> Result<()> {
     }
 
     // run type checker
-    type_checking::type_check(&program)
+    type_check(&program)
         .map_err(AppError::TypeCheckError)
         .map_err(wrap_with_source)?;
     info!("Type checking was successful");
 
     // run lowering
-    let program = lowering::lower(program)
+    let program = lower(program)
         .map_err(AppError::LoweringError)
         .map_err(wrap_with_source)?;
     info!("Lowering to intermediate representation was successful");
@@ -186,7 +188,7 @@ fn main() -> Result<()> {
 
     // run codegen
     let context = Context::create();
-    let module = codegen::compile(&context, program).map_err(AppError::CodegenError)?;
+    let module = compile(&context, program).map_err(AppError::CodegenError)?;
     info!("Code generation was successful");
 
     /* WRITE OUTPUT FILE */
