@@ -16,6 +16,12 @@ type Spanned<T> = (T, Span);
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Variable(usize);
 
+impl std::fmt::Display for Variable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "VAR#{}", self.0)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Type {
     Int,

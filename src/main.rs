@@ -182,7 +182,7 @@ fn main() -> Result<()> {
     info!("Lowering to intermediate representation was successful");
 
     if args.mode == ExecutionMode::Ir {
-        println!("{program:#?}");
+        program.pretty_print().map_err(AppError::GenericIoError)?;
         return Ok(());
     }
 
