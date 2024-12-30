@@ -1,10 +1,37 @@
 use std::collections::HashMap;
 
-use crate::ast::*;
-use crate::ir;
-use crate::{Type, Variable};
+use miette::Diagnostic;
+use thiserror::Error;
 
-pub fn lower(program: Program) -> Option<ir::Program> {
+use crate::{ast::*, ir, Span, Spanned, Type, Variable};
+
+#[derive(Debug, Error, Diagnostic)]
+pub enum LoweringError {
+    #[error("No main function defined as entry point for the program")]
+    #[diagnostic(help("An entry function must be defined with `func main(): int`"))]
+    NoEntryFunction,
+
+    #[error("The main function is malformed")]
+    MalformedEntryFunction {
+        #[help]
+        context: String,
+
+        #[label]
+        span: Span,
+    },
+
+    #[error("The variable {variable} is not bound")]
+    VariableNotBound {
+        variable: String,
+
+        #[label("this variable")]
+        span: Span,
+    },
+}
+
+type Result<T> = std::result::Result<T, LoweringError>;
+
+pub fn lower(program: Program) -> Result<ir::Program> {
     let mut lowerer = Lowerer::default();
     lowerer.lower_program(program)
 }
@@ -15,10 +42,10 @@ struct Lowerer {
 }
 
 impl Lowerer {
-    fn lower_program(&mut self, program: Program) -> Option<ir::Program> {
+    fn lower_program(&mut self, program: Program) -> Result<ir::Program> {
         let mut functions = Vec::with_capacity(program.functions.len());
         let mut entry = None;
-        for (func, _) in program.functions {
+        for (func, span) in program.functions {
             let param_vars: Vec<(Ident, Variable, Type)> = func
                 .params
                 .into_iter()
@@ -40,45 +67,59 @@ impl Lowerer {
                 return_type: func.ret_type,
             };
 
-            let body = self.lower_expression(func.body.0, &vars);
+            let body = self.lower_expression(func.body, &vars)?;
 
             let function = ir::FunctionDefinition { prototype, body };
 
             if func.name.as_str() == "main" {
-                assert!(function.prototype.parameters.is_empty());
-                assert_eq!(function.prototype.return_type, Type::Int);
+                if !function.prototype.parameters.is_empty() {
+                    return Err(LoweringError::MalformedEntryFunction {
+                        context: String::from("The main function does not take any arguments"),
+                        span,
+                    });
+                }
+
+                if function.prototype.return_type != Type::Int {
+                    return Err(LoweringError::MalformedEntryFunction {
+                        context: String::from("The main function does always return the type int"),
+                        span,
+                    });
+                }
+
                 entry = Some(function.body);
             } else {
                 functions.push(function);
             }
         }
 
-        Some(ir::Program {
-            entry: entry?,
+        Ok(ir::Program {
+            entry: entry.ok_or(LoweringError::NoEntryFunction)?,
             functions,
         })
     }
 
     fn lower_expression(
         &mut self,
-        exp: Expression,
+        (exp, span): Spanned<Expression>,
         vars: &HashMap<Ident, Variable>,
-    ) -> ir::Expression {
+    ) -> Result<ir::Expression> {
+        use ir::Expression::*;
+        use ir::Value;
         match exp {
-            Expression::Int(i) => ir::Expression::Direct(ir::Value::Number(i as i32)),
-            Expression::Bool(b) => ir::Expression::Direct(ir::Value::Boolean(b)),
-            Expression::Var(v) => match vars.get(&v) {
-                Some(var) => ir::Expression::Direct(ir::Value::Variable(*var)),
-                None => panic!("Not bound"),
-            },
-            Expression::UnaOp { inner, .. } => {
-                let _inner = self.lower_expression(inner.0, vars);
+            Expression::Int(i) => Ok(Direct(Value::Number(i as i32))),
+            Expression::Bool(b) => Ok(Direct(Value::Boolean(b))),
+            Expression::Var(v) => vars
+                .get(&v)
+                .copied()
+                .map(|v| Direct(Value::Variable(v)))
+                .ok_or(LoweringError::VariableNotBound { variable: v, span }),
+            Expression::UnaOp { .. } => {
                 todo!()
             }
             Expression::BinOp { kind, lhs, rhs } => {
-                let lhs = self.lower_expression(lhs.0, vars);
-                let rhs = self.lower_expression(rhs.0, vars);
-                ir::Expression::BinaryOperation(Box::new(ir::BinaryOperation {
+                let lhs = self.lower_expression(*lhs, vars)?;
+                let rhs = self.lower_expression(*rhs, vars)?;
+                Ok(BinaryOperation(Box::new(ir::BinaryOperation {
                     kind: match kind {
                         BinOpKind::Add => ir::BinaryOperationKind::Add,
                         BinOpKind::Sub => ir::BinaryOperationKind::Sub,
@@ -88,40 +129,40 @@ impl Lowerer {
                     },
                     lhs,
                     rhs,
-                }))
+                })))
             }
             Expression::LetIn { var, bind, body } => {
-                let bind = self.lower_expression(bind.0, vars);
+                let bind = self.lower_expression(*bind, vars)?;
                 let fresh = self.fresh_variable();
                 let mut extended_vars = vars.clone();
                 extended_vars.insert(var, fresh);
-                let body = self.lower_expression(body.0, &extended_vars);
+                let body = self.lower_expression(*body, &extended_vars)?;
 
-                ir::Expression::LocalBinding(Box::new(ir::LocalBinding {
+                Ok(LocalBinding(Box::new(ir::LocalBinding {
                     var: fresh,
                     bind,
                     body,
-                }))
+                })))
             }
             Expression::IfThenElse {
                 condition,
                 then_branch,
                 else_branch,
-            } => ir::Expression::Conditional(Box::new(ir::Conditional {
-                condition: self.lower_expression(condition.0, vars),
-                then_branch: self.lower_expression(then_branch.0, vars),
-                else_branch: self.lower_expression(else_branch.0, vars),
-            })),
+            } => Ok(Conditional(Box::new(ir::Conditional {
+                condition: self.lower_expression(*condition, vars)?,
+                then_branch: self.lower_expression(*then_branch, vars)?,
+                else_branch: self.lower_expression(*else_branch, vars)?,
+            }))),
             Expression::Call { function, args } => {
-                let args = args
-                    .into_iter()
-                    .map(|(arg, _)| self.lower_expression(arg, vars))
-                    .collect();
-
-                ir::Expression::FunctionCall {
-                    fn_name: function,
-                    args,
+                let mut lowered_args = Vec::with_capacity(args.len());
+                for arg in args {
+                    lowered_args.push(self.lower_expression(arg, vars)?);
                 }
+
+                Ok(FunctionCall {
+                    fn_name: function,
+                    args: lowered_args,
+                })
             }
         }
     }

@@ -82,6 +82,10 @@ enum AppError {
     #[diagnostic(transparent)]
     TypeCheckError(#[from] type_checking::TypeCheckError),
 
+    #[error("Lowering of the AST to IR failed")]
+    #[diagnostic(transparent)]
+    LoweringError(#[from] lowering::LoweringError),
+
     #[error(transparent)]
     GenericIoError(std::io::Error),
 }
@@ -166,7 +170,9 @@ fn main() -> Result<()> {
     info!("Type checking was successful");
 
     // run lowering
-    let program = lowering::lower(program).unwrap(); // TODO: error handling
+    let program = lowering::lower(program)
+        .map_err(AppError::LoweringError)
+        .map_err(wrap_with_source)?;
     info!("Lowering to intermediate representation was successful");
 
     if args.mode == ExecutionMode::Ir {
