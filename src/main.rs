@@ -86,6 +86,10 @@ enum AppError {
     #[diagnostic(transparent)]
     LoweringError(#[from] lowering::LoweringError),
 
+    #[error("Code generation failed")]
+    #[diagnostic(transparent)]
+    CodegenError(#[from] codegen::CodegenError),
+
     #[error("An I/O operation failed")]
     GenericIoError(#[from] std::io::Error),
 }
@@ -182,7 +186,7 @@ fn main() -> Result<()> {
 
     // run codegen
     let context = Context::create();
-    let module = codegen::compile(&context, program); // TODO: error handling
+    let module = codegen::compile(&context, program).map_err(AppError::CodegenError)?;
     info!("Code generation was successful");
 
     /* WRITE OUTPUT FILE */
