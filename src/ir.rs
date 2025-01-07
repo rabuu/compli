@@ -159,9 +159,11 @@ impl TreeItem for Expression {
             Expression::FunctionCall { args, .. } => Cow::from(args.clone()),
             Expression::LocalBinding(x) => Cow::from(vec![x.bind.clone(), x.body.clone()]),
             Expression::BinaryOperation(x) => Cow::from(vec![x.lhs.clone(), x.rhs.clone()]),
-            Expression::Conditional(x) => {
-                Cow::from(vec![x.then_branch.clone(), x.else_branch.clone()])
-            }
+            Expression::Conditional(x) => Cow::from(vec![
+                x.condition.clone(),
+                x.then_branch.clone(),
+                x.else_branch.clone(),
+            ]),
         }
     }
 }
