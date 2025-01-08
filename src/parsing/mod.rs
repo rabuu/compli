@@ -9,6 +9,8 @@ use crate::{ast, Span};
 mod lexer;
 mod parser;
 
+type ParseErr<T> = Simple<T, Span>;
+
 #[derive(Debug, Error, Diagnostic)]
 pub enum ParsingError {
     #[error("Found an unclosed delimiter: {delimiter}")]
@@ -42,12 +44,19 @@ pub enum ParsingError {
 }
 
 pub fn parse(source: &str) -> Result<ast::Program, Vec<ParsingError>> {
-    let (tokens, lex_errs) = lexer::lex().parse_recovery(source);
+    let end_of_input = Span::marker(source.chars().count());
+
+    let char_iter = source
+        .chars()
+        .enumerate()
+        .map(|(i, c)| (c, Span::single(i)));
+
+    let (tokens, lex_errs) =
+        lexer::lex().parse_recovery(Stream::from_iter(end_of_input, char_iter));
 
     let parse_errs = if let Some(tokens) = tokens {
-        let len = source.chars().count();
         let (program, parse_errs) =
-            parser::parser().parse_recovery(Stream::from_iter(len..len + 1, tokens.into_iter()));
+            parser::parser().parse_recovery(Stream::from_iter(end_of_input, tokens.into_iter()));
 
         if let Some(program) = program.filter(|_| lex_errs.len() + parse_errs.len() == 0) {
             return Ok(program);
@@ -68,7 +77,7 @@ pub fn parse(source: &str) -> Result<ast::Program, Vec<ParsingError>> {
     Err(errors)
 }
 
-fn build_error(err: Simple<String>) -> ParsingError {
+fn build_error(err: ParseErr<String>) -> ParsingError {
     let eof = String::from("end of file");
     match err.reason() {
         SimpleReason::Unexpected => {

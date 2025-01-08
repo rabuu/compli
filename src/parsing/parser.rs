@@ -1,9 +1,11 @@
 use chumsky::prelude::*;
 
 use super::lexer::Token;
+use super::ParseErr;
+
 use crate::{ast, Span, Type};
 
-pub fn parser() -> impl Parser<Token, ast::Program, Error = Simple<Token>> + Clone {
+pub fn parser() -> impl Parser<Token, ast::Program, Error = ParseErr<Token>> + Clone {
     let ident = select! { Token::Ident(ident) => ident }.labelled("identifier");
 
     let expr = recursive(|expr| {
@@ -39,7 +41,7 @@ pub fn parser() -> impl Parser<Token, ast::Program, Error = Simple<Token>> + Clo
             .then(atom)
             .map(|(op, inner)| {
                 if let Some(op) = op {
-                    let span = op.1.start..inner.1.end;
+                    let span = Span::new(op.1.start, inner.1.end);
                     let e = ast::Expression::UnaOp {
                         kind: op.0,
                         inner: Box::new(inner),
@@ -60,7 +62,7 @@ pub fn parser() -> impl Parser<Token, ast::Program, Error = Simple<Token>> + Clo
                     .repeated(),
             )
             .foldl(|lhs, (kind, rhs)| {
-                let span = lhs.1.start..rhs.1.end;
+                let span = Span::new(lhs.1.start, rhs.1.end);
                 let e = ast::Expression::BinOp {
                     kind,
                     lhs: Box::new(lhs),
@@ -79,7 +81,7 @@ pub fn parser() -> impl Parser<Token, ast::Program, Error = Simple<Token>> + Clo
                     .repeated(),
             )
             .foldl(|lhs, (kind, rhs)| {
-                let span = lhs.1.start..rhs.1.end;
+                let span = Span::new(lhs.1.start, rhs.1.end);
                 let e = ast::Expression::BinOp {
                     kind,
                     lhs: Box::new(lhs),
@@ -97,7 +99,7 @@ pub fn parser() -> impl Parser<Token, ast::Program, Error = Simple<Token>> + Clo
                     .repeated(),
             )
             .foldl(|lhs, (kind, rhs)| {
-                let span = lhs.1.start..rhs.1.end;
+                let span = Span::new(lhs.1.start, rhs.1.end);
                 let e = ast::Expression::BinOp {
                     kind,
                     lhs: Box::new(lhs),
@@ -116,7 +118,7 @@ pub fn parser() -> impl Parser<Token, ast::Program, Error = Simple<Token>> + Clo
             .then_ignore(just(Token::KwElse))
             .then(expr.clone())
             .map(|(((start, condition), then_branch), else_branch)| {
-                let span = start..else_branch.1.end;
+                let span = Span::new(start, else_branch.1.end);
                 let e = ast::Expression::IfThenElse {
                     condition: Box::new(condition),
                     then_branch: Box::new(then_branch),
@@ -133,7 +135,7 @@ pub fn parser() -> impl Parser<Token, ast::Program, Error = Simple<Token>> + Clo
             .then_ignore(just(Token::KwIn))
             .then(expr.clone())
             .map(|(((start, var), bind), body)| {
-                let span = start..body.1.end;
+                let span = Span::new(start, body.1.end);
                 let e = ast::Expression::LetIn {
                     var,
                     bind: Box::new(bind),
@@ -166,7 +168,7 @@ pub fn parser() -> impl Parser<Token, ast::Program, Error = Simple<Token>> + Clo
         .then_ignore(just(Token::Assign))
         .then(expr.clone())
         .map(|((((start, name), params), ret_type), body)| {
-            let span = start..body.1.end;
+            let span = Span::new(start, body.1.end);
             let func = ast::Function {
                 name,
                 params,

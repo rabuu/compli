@@ -2,6 +2,8 @@ use std::fmt;
 
 use chumsky::prelude::*;
 
+use super::ParseErr;
+
 use crate::Spanned;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -63,7 +65,7 @@ impl fmt::Display for Token {
     }
 }
 
-pub fn lex() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
+pub fn lex() -> impl Parser<char, Vec<Spanned<Token>>, Error = ParseErr<char>> {
     let integer = text::int(10).from_str().unwrapped().map(Token::Int);
 
     let symbol = choice((

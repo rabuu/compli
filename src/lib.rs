@@ -4,14 +4,13 @@ mod ir;
 mod lowering;
 mod parsing;
 mod type_checking;
+mod util;
 
 pub use codegen::{compile, CodegenError};
 pub use lowering::{lower, LoweringError};
 pub use parsing::{parse, ParsingError};
 pub use type_checking::{type_check, TypeCheckError};
-
-type Span = std::ops::Range<usize>;
-type Spanned<T> = (T, Span);
+pub use util::{Span, Spanned};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Variable(usize);
