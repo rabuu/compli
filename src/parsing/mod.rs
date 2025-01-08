@@ -110,7 +110,7 @@ fn build_error(err: ParseErr<String>) -> ParsingError {
             ParsingError::UnclosedDelimiter {
                 delimiter: delimiter.clone(),
                 must_close_before: must_close_before.clone(),
-                span: span.clone(),
+                span: *span,
             }
         }
         SimpleReason::Custom(msg) => ParsingError::Custom {

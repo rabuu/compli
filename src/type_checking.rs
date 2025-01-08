@@ -64,7 +64,7 @@ impl TypeChecker {
     fn check_function(&self, (function, span): &Spanned<ast::Function>) -> Result<()> {
         let vars = function.params.iter().cloned().collect();
         let ret = self.infer_expr(&function.body, &vars)?;
-        expect_type(function.ret_type, ret, span.clone())
+        expect_type(function.ret_type, ret, *span)
     }
 
     fn infer_expr(
@@ -80,18 +80,18 @@ impl TypeChecker {
                     .copied()
                     .ok_or_else(|| TypeCheckError::NotBound {
                         name: x.clone(),
-                        span: span.clone(),
+                        span: *span,
                     })
             }
             ast::Expression::UnaOp { kind, inner } => {
                 let arg = self.infer_expr(inner, vars)?;
                 match kind {
                     ast::UnaOpKind::Neg => {
-                        expect_type(Type::Int, arg, inner.1.clone())?;
+                        expect_type(Type::Int, arg, inner.1)?;
                         Ok(Type::Int)
                     }
                     ast::UnaOpKind::Not => {
-                        expect_type(Type::Bool, arg, inner.1.clone())?;
+                        expect_type(Type::Bool, arg, inner.1)?;
                         Ok(Type::Bool)
                     }
                 }
@@ -101,18 +101,18 @@ impl TypeChecker {
                 let rhs_t = self.infer_expr(rhs, vars)?;
                 match kind {
                     ast::BinOpKind::Add | ast::BinOpKind::Sub => {
-                        expect_type(Type::Int, lhs_t, lhs.1.clone())?;
-                        expect_type(Type::Int, rhs_t, rhs.1.clone())?;
+                        expect_type(Type::Int, lhs_t, lhs.1)?;
+                        expect_type(Type::Int, rhs_t, rhs.1)?;
                         Ok(Type::Int)
                     }
                     ast::BinOpKind::Equals | ast::BinOpKind::Less => {
-                        expect_type(Type::Int, lhs_t, lhs.1.clone())?;
-                        expect_type(Type::Int, rhs_t, rhs.1.clone())?;
+                        expect_type(Type::Int, lhs_t, lhs.1)?;
+                        expect_type(Type::Int, rhs_t, rhs.1)?;
                         Ok(Type::Bool)
                     }
                     ast::BinOpKind::And => {
-                        expect_type(Type::Bool, lhs_t, lhs.1.clone())?;
-                        expect_type(Type::Bool, rhs_t, rhs.1.clone())?;
+                        expect_type(Type::Bool, lhs_t, lhs.1)?;
+                        expect_type(Type::Bool, rhs_t, rhs.1)?;
                         Ok(Type::Bool)
                     }
                 }
@@ -131,11 +131,11 @@ impl TypeChecker {
                 else_branch,
             } => {
                 let condition_t = self.infer_expr(condition, vars)?;
-                expect_type(Type::Bool, condition_t, condition.1.clone())?;
+                expect_type(Type::Bool, condition_t, condition.1)?;
 
                 let then_branch_t = self.infer_expr(then_branch, vars)?;
                 let else_branch_t = self.infer_expr(else_branch, vars)?;
-                expect_type(then_branch_t, else_branch_t, else_branch.1.clone())?;
+                expect_type(then_branch_t, else_branch_t, else_branch.1)?;
 
                 Ok(then_branch_t)
             }
@@ -145,20 +145,20 @@ impl TypeChecker {
                         .get(function)
                         .ok_or_else(|| TypeCheckError::NotBound {
                             name: function.clone(),
-                            span: span.clone(),
+                            span: *span,
                         })?;
 
                 if args.len() != params.len() {
                     return Err(TypeCheckError::WrongNumberOfArguments {
                         expected: params.len(),
                         actual: args.len(),
-                        span: span.clone(),
+                        span: *span,
                     });
                 }
 
                 for (arg, &param) in args.iter().zip(params.iter()) {
                     let arg_t = self.infer_expr(arg, vars)?;
-                    expect_type(param, arg_t, arg.1.clone())?;
+                    expect_type(param, arg_t, arg.1)?;
                 }
 
                 Ok(*ret)
