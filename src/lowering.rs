@@ -169,7 +169,7 @@ impl Lowerer {
 
     fn fresh_variable(&mut self) -> Variable {
         let fresh = self.fresh_variable;
-        self.fresh_variable.0 += 1;
+        self.fresh_variable.advance();
         fresh
     }
 }

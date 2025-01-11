@@ -10,16 +10,7 @@ pub use codegen::{compile, CodegenError};
 pub use lowering::{lower, LoweringError};
 pub use parsing::{parse, ParsingError};
 pub use type_checking::{type_check, TypeCheckError};
-pub use util::{Span, Spanned};
-
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Variable(usize);
-
-impl std::fmt::Display for Variable {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "VAR#{}", self.0)
-    }
-}
+pub use util::{Span, Spanned, Variable};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Type {
