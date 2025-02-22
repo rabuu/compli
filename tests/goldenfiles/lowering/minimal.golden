@@ -1,0 +1,1 @@
+Program { entry: Direct(Number(0)), functions: [] }
