@@ -2,13 +2,13 @@ use crate::{Span, Type};
 
 pub type Ident = String;
 
-pub type UntypedProgram = Program<()>;
+pub type UntypedProgram = Program<NoContext>;
 pub type TypedProgram = Program<Type>;
 
 #[derive(Debug)]
 pub struct Program<C>
 where
-    C: fmt::Debug + Clone,
+    C: fmt::Display + Clone,
 {
     pub functions: Vec<Function<C>>,
 }
@@ -16,7 +16,7 @@ where
 #[derive(Debug, Clone)]
 pub struct Function<C>
 where
-    C: fmt::Debug + Clone,
+    C: fmt::Display + Clone,
 {
     pub name: Ident,
     pub params: Vec<(Ident, Type)>,
@@ -28,7 +28,7 @@ where
 #[derive(Debug, Clone)]
 pub struct Expression<C>
 where
-    C: fmt::Debug + Clone,
+    C: fmt::Display + Clone,
 {
     pub kind: ExpressionKind<C>,
     pub span: Span,
@@ -37,7 +37,7 @@ where
 
 impl<C> Expression<C>
 where
-    C: fmt::Debug + Clone,
+    C: fmt::Display + Clone,
 {
     pub fn new(kind: ExpressionKind<C>, span: Span, context: C) -> Self {
         Self {
@@ -51,7 +51,7 @@ where
 #[derive(Debug, Clone)]
 pub enum ExpressionKind<C>
 where
-    C: fmt::Debug + Clone,
+    C: fmt::Display + Clone,
 {
     Int(u16),
     Bool(bool),
@@ -101,13 +101,22 @@ pub enum BinOpKind {
     And,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct NoContext;
+
+impl fmt::Display for NoContext {
+    fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Ok(())
+    }
+}
+
 use ptree::{print_tree, Style, TreeItem};
 use std::borrow::Cow;
 use std::{fmt, io};
 
 impl<C> Program<C>
 where
-    C: fmt::Debug + Clone,
+    C: fmt::Display + Clone,
 {
     pub fn pretty_print(&self) -> io::Result<()> {
         for func in &self.functions {
@@ -140,7 +149,7 @@ impl fmt::Display for BinOpKind {
 
 impl<C> TreeItem for Function<C>
 where
-    C: fmt::Debug + Clone,
+    C: fmt::Display + Clone,
 {
     type Child = Expression<C>;
 
@@ -168,21 +177,27 @@ where
 
 impl<C> TreeItem for Expression<C>
 where
-    C: fmt::Debug + Clone,
+    C: fmt::Display + Clone,
 {
     type Child = Self;
 
     fn write_self<W: io::Write>(&self, f: &mut W, style: &Style) -> io::Result<()> {
         match &self.kind {
-            ExpressionKind::Int(i) => write!(f, "{}", style.paint(i)),
-            ExpressionKind::Bool(b) => write!(f, "{}", style.paint(b)),
-            ExpressionKind::Var(x) => write!(f, "{}", style.paint(x)),
-            ExpressionKind::UnaOp { op_kind: kind, .. } => write!(f, "{}", style.paint(kind)),
-            ExpressionKind::BinOp { op_kind: kind, .. } => write!(f, "{}", style.paint(kind)),
-            ExpressionKind::LetIn { var, .. } => write!(f, "{}", style.paint(format!("LET {var}"))),
-            ExpressionKind::IfThenElse { .. } => write!(f, "{}", style.paint("IF-THEN-ELSE")),
+            ExpressionKind::Int(i) => {
+                write!(f, "{}", style.paint(format!("{i} {}", self.context)))
+            }
+            ExpressionKind::Bool(b) => {
+                write!(f, "{}", style.paint(format!("{b} {}", self.context)))
+            }
+            ExpressionKind::Var(x) => {
+                write!(f, "{}", style.paint(format!("{x} {}", self.context)))
+            }
+            ExpressionKind::UnaOp { op_kind: kind, .. } => write!(f, "{}", style.paint(format!("{kind} {}", self.context))),
+            ExpressionKind::BinOp { op_kind: kind, .. } => write!(f, "{}", style.paint(format!("{kind} {}", self.context))),
+            ExpressionKind::LetIn { var, .. } => write!(f, "{}", style.paint(format!("LET {var} {}", self.context))),
+            ExpressionKind::IfThenElse { .. } => write!(f, "{}", style.paint(format!("IF-THEN-ELSE {}", self.context))),
             ExpressionKind::Call { function, .. } => {
-                write!(f, "{}", style.paint(format!("CALL {function}")))
+                write!(f, "{}", style.paint(format!("CALL {function} {}", self.context)))
             }
         }
     }

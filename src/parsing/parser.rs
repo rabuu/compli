@@ -29,7 +29,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
         let atom = val
             .or(call)
             .or(var)
-            .map_with_span(|kind, span: Span| ast::Expression::new(kind, span, ()))
+            .map_with_span(|kind, span: Span| ast::Expression::new(kind, span, ast::NoContext))
             .or(expr
                 .clone()
                 .delimited_by(just(Token::ParenOpen), just(Token::ParenClose)));
@@ -46,7 +46,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
                         op_kind: op.0,
                         inner: Box::new(inner),
                     };
-                    ast::Expression::new(e, span, ())
+                    ast::Expression::new(e, span, ast::NoContext)
                 } else {
                     inner
                 }
@@ -68,7 +68,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
                     lhs: Box::new(lhs),
                     rhs: Box::new(rhs),
                 };
-                ast::Expression::new(e, span, ())
+                ast::Expression::new(e, span, ast::NoContext)
             });
 
         let comparison = sum_or_diff
@@ -87,7 +87,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
                     lhs: Box::new(lhs),
                     rhs: Box::new(rhs),
                 };
-                ast::Expression::new(e, span, ())
+                ast::Expression::new(e, span, ast::NoContext)
             });
 
         let and = comparison
@@ -105,7 +105,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
                     lhs: Box::new(lhs),
                     rhs: Box::new(rhs),
                 };
-                ast::Expression::new(e, span, ())
+                ast::Expression::new(e, span, ast::NoContext)
             });
 
         let term = and.labelled("term");
@@ -124,7 +124,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
                     then_branch: Box::new(then_branch),
                     else_branch: Box::new(else_branch),
                 };
-                ast::Expression::new(e, span, ())
+                ast::Expression::new(e, span, ast::NoContext)
             });
 
         let let_in = just(Token::KwLet)
@@ -141,7 +141,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
                     bind: Box::new(bind),
                     body: Box::new(body),
                 };
-                ast::Expression::new(e, span, ())
+                ast::Expression::new(e, span, ast::NoContext)
             });
 
         choice((if_then_else, let_in, term))

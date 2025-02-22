@@ -51,6 +51,9 @@ enum ExecutionMode {
     /// Inspect the AST of the parsed source code
     Ast,
 
+    /// Inspect the AST after type checking
+    TypedAst,
+
     /// Inspect the IR of the lowered AST
     Ir,
 }
@@ -174,6 +177,11 @@ fn main() -> Result<()> {
         .map_err(AppError::TypeCheckError)
         .map_err(wrap_with_source)?;
     info!("Type checking was successful");
+
+    if args.mode == ExecutionMode::TypedAst {
+        program.pretty_print().map_err(AppError::GenericIoError)?;
+        return Ok(());
+    }
 
     // run lowering
     let program = lower(program)

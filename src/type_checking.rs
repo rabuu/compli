@@ -65,7 +65,7 @@ struct TypeChecker {
 }
 
 impl TypeChecker {
-    fn check_function(&self, function: ast::Function<()>) -> Result<ast::Function<Type>> {
+    fn check_function(&self, function: ast::Function<ast::NoContext>) -> Result<ast::Function<Type>> {
         let vars = function.params.iter().cloned().collect();
         let typed_body = self.infer_expr(function.body, &vars)?;
         expect_type(function.ret_type, typed_body.context, function.span)?;
@@ -81,7 +81,7 @@ impl TypeChecker {
 
     fn infer_expr(
         &self,
-        expr: ast::Expression<()>,
+        expr: ast::Expression<ast::NoContext>,
         vars: &HashMap<ast::Ident, Type>,
     ) -> Result<ast::Expression<Type>> {
         match expr.kind {
