@@ -170,7 +170,7 @@ fn main() -> Result<()> {
     }
 
     // run type checker
-    type_check(&program)
+    let program = type_check(program)
         .map_err(AppError::TypeCheckError)
         .map_err(wrap_with_source)?;
     info!("Type checking was successful");

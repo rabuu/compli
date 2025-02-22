@@ -36,8 +36,8 @@ pub enum TypeCheckError {
 
 type Result<T> = std::result::Result<T, TypeCheckError>;
 
-pub fn type_check(program: &ast::Program<()>) -> Result<()> {
-    let functions = program
+pub fn type_check(program: ast::Program<()>) -> Result<ast::Program<Type>> {
+    let prototypes = program
         .functions
         .iter()
         .map(|f| {
@@ -48,101 +48,178 @@ pub fn type_check(program: &ast::Program<()>) -> Result<()> {
         })
         .collect();
 
-    let checker = TypeChecker { functions };
-    for function in &program.functions {
-        checker.check_function(function)?;
+    let checker = TypeChecker { prototypes };
+
+    let mut typed_functions = Vec::with_capacity(program.functions.len());
+    for function in program.functions {
+        typed_functions.push(checker.check_function(function)?);
     }
 
-    Ok(())
+    Ok(ast::Program {
+        functions: typed_functions,
+    })
 }
 
 struct TypeChecker {
-    functions: HashMap<ast::Ident, (Vec<Type>, Type)>,
+    prototypes: HashMap<ast::Ident, (Vec<Type>, Type)>,
 }
 
 impl TypeChecker {
-    fn check_function(&self, function: &ast::Function<()>) -> Result<()> {
+    fn check_function(&self, function: ast::Function<()>) -> Result<ast::Function<Type>> {
         let vars = function.params.iter().cloned().collect();
-        let ret = self.infer_expr(&function.body, &vars)?;
-        expect_type(function.ret_type, ret, function.span)
+        let typed_body = self.infer_expr(function.body, &vars)?;
+        expect_type(function.ret_type, typed_body.context, function.span)?;
+
+        Ok(ast::Function {
+            name: function.name,
+            params: function.params,
+            ret_type: function.ret_type,
+            body: typed_body,
+            span: function.span,
+        })
     }
 
     fn infer_expr(
         &self,
-        expr: &ast::Expression<()>,
+        expr: ast::Expression<()>,
         vars: &HashMap<ast::Ident, Type>,
-    ) -> Result<Type> {
-        match &expr.kind {
-            ast::ExpressionKind::Int(_) => Ok(Type::Int),
-            ast::ExpressionKind::Bool(_) => Ok(Type::Bool),
+    ) -> Result<ast::Expression<Type>> {
+        match expr.kind {
+            ast::ExpressionKind::Int(x) => Ok(ast::Expression {
+                kind: ast::ExpressionKind::Int(x),
+                span: expr.span,
+                context: Type::Int,
+            }),
+
+            ast::ExpressionKind::Bool(x) => Ok(ast::Expression {
+                kind: ast::ExpressionKind::Bool(x),
+                span: expr.span,
+                context: Type::Bool,
+            }),
+
             ast::ExpressionKind::Var(x) => {
-                vars.get(x)
+                let typ = vars
+                    .get(&x)
                     .copied()
                     .ok_or_else(|| TypeCheckError::NotBound {
                         name: x.clone(),
                         span: expr.span,
-                    })
+                    })?;
+
+                Ok(ast::Expression {
+                    kind: ast::ExpressionKind::Var(x),
+                    span: expr.span,
+                    context: typ,
+                })
             }
-            ast::ExpressionKind::UnaOp { op_kind: kind, inner } => {
-                let arg = self.infer_expr(inner, vars)?;
-                match kind {
+
+            ast::ExpressionKind::UnaOp { op_kind, inner } => {
+                let arg = self.infer_expr(*inner, vars)?;
+                let typ = match op_kind {
                     ast::UnaOpKind::Neg => {
-                        expect_type(Type::Int, arg, inner.span)?;
-                        Ok(Type::Int)
+                        expect_type(Type::Int, arg.context, arg.span)?;
+                        Type::Int
                     }
                     ast::UnaOpKind::Not => {
-                        expect_type(Type::Bool, arg, inner.span)?;
-                        Ok(Type::Bool)
+                        expect_type(Type::Bool, arg.context, arg.span)?;
+                        Type::Bool
                     }
-                }
+                };
+
+                Ok(ast::Expression {
+                    kind: ast::ExpressionKind::UnaOp {
+                        op_kind,
+                        inner: Box::new(arg),
+                    },
+                    span: expr.span,
+                    context: typ,
+                })
             }
-            ast::ExpressionKind::BinOp { op_kind: kind, lhs, rhs } => {
-                let lhs_t = self.infer_expr(lhs, vars)?;
-                let rhs_t = self.infer_expr(rhs, vars)?;
-                match kind {
+
+            ast::ExpressionKind::BinOp { op_kind, lhs, rhs } => {
+                let typed_lhs = self.infer_expr(*lhs, vars)?;
+                let typed_rhs = self.infer_expr(*rhs, vars)?;
+                let typ = match op_kind {
                     ast::BinOpKind::Add | ast::BinOpKind::Sub => {
-                        expect_type(Type::Int, lhs_t, lhs.span)?;
-                        expect_type(Type::Int, rhs_t, rhs.span)?;
-                        Ok(Type::Int)
+                        expect_type(Type::Int, typed_lhs.context, typed_lhs.span)?;
+                        expect_type(Type::Int, typed_rhs.context, typed_rhs.span)?;
+                        Type::Int
                     }
                     ast::BinOpKind::Equals | ast::BinOpKind::Less => {
-                        expect_type(Type::Int, lhs_t, lhs.span)?;
-                        expect_type(Type::Int, rhs_t, rhs.span)?;
-                        Ok(Type::Bool)
+                        expect_type(Type::Int, typed_lhs.context, typed_lhs.span)?;
+                        expect_type(Type::Int, typed_rhs.context, typed_rhs.span)?;
+                        Type::Bool
                     }
                     ast::BinOpKind::And => {
-                        expect_type(Type::Bool, lhs_t, lhs.span)?;
-                        expect_type(Type::Bool, rhs_t, rhs.span)?;
-                        Ok(Type::Bool)
+                        expect_type(Type::Bool, typed_lhs.context, typed_lhs.span)?;
+                        expect_type(Type::Bool, typed_rhs.context, typed_rhs.span)?;
+                        Type::Bool
                     }
-                }
+                };
+
+                Ok(ast::Expression {
+                    kind: ast::ExpressionKind::BinOp {
+                        op_kind,
+                        lhs: Box::new(typed_lhs),
+                        rhs: Box::new(typed_rhs),
+                    },
+                    span: expr.span,
+                    context: typ,
+                })
             }
+
             ast::ExpressionKind::LetIn { var, bind, body } => {
-                let bind = self.infer_expr(bind, vars)?;
+                let typed_bind = self.infer_expr(*bind, vars)?;
 
                 let mut extended_vars = vars.clone();
-                extended_vars.insert(var.clone(), bind);
+                extended_vars.insert(var.clone(), typed_bind.context);
 
-                self.infer_expr(body, &extended_vars)
+                let typed_body = self.infer_expr(*body, &extended_vars)?;
+                let typ = typed_body.context;
+
+                Ok(ast::Expression {
+                    kind: ast::ExpressionKind::LetIn {
+                        var,
+                        bind: Box::new(typed_bind),
+                        body: Box::new(typed_body),
+                    },
+                    span: expr.span,
+                    context: typ,
+                })
             }
+
             ast::ExpressionKind::IfThenElse {
                 condition,
                 then_branch,
                 else_branch,
             } => {
-                let condition_t = self.infer_expr(condition, vars)?;
-                expect_type(Type::Bool, condition_t, condition.span)?;
+                let typed_condition = self.infer_expr(*condition, vars)?;
+                expect_type(Type::Bool, typed_condition.context, typed_condition.span)?;
 
-                let then_branch_t = self.infer_expr(then_branch, vars)?;
-                let else_branch_t = self.infer_expr(else_branch, vars)?;
-                expect_type(then_branch_t, else_branch_t, else_branch.span)?;
+                let typed_then_branch = self.infer_expr(*then_branch, vars)?;
+                let typed_else_branch = self.infer_expr(*else_branch, vars)?;
+                expect_type(
+                    typed_then_branch.context,
+                    typed_else_branch.context,
+                    typed_else_branch.span,
+                )?;
+                let typ = typed_then_branch.context;
 
-                Ok(then_branch_t)
+                Ok(ast::Expression {
+                    kind: ast::ExpressionKind::IfThenElse {
+                        condition: Box::new(typed_condition),
+                        then_branch: Box::new(typed_then_branch),
+                        else_branch: Box::new(typed_else_branch),
+                    },
+                    span: expr.span,
+                    context: typ,
+                })
             }
+
             ast::ExpressionKind::Call { function, args } => {
                 let (params, ret) =
-                    self.functions
-                        .get(function)
+                    self.prototypes
+                        .get(&function)
                         .ok_or_else(|| TypeCheckError::NotBound {
                             name: function.clone(),
                             span: expr.span,
@@ -156,12 +233,21 @@ impl TypeChecker {
                     });
                 }
 
-                for (arg, &param) in args.iter().zip(params.iter()) {
-                    let arg_t = self.infer_expr(arg, vars)?;
-                    expect_type(param, arg_t, arg.span)?;
+                let mut typed_args = Vec::with_capacity(args.len());
+                for (arg, &param) in args.into_iter().zip(params.iter()) {
+                    let typed_arg = self.infer_expr(arg, vars)?;
+                    expect_type(param, typed_arg.context, typed_arg.span)?;
+                    typed_args.push(typed_arg);
                 }
 
-                Ok(*ret)
+                Ok(ast::Expression {
+                    kind: ast::ExpressionKind::Call {
+                        function,
+                        args: typed_args,
+                    },
+                    span: expr.span,
+                    context: *ret,
+                })
             }
         }
     }

@@ -31,7 +31,7 @@ pub enum LoweringError {
 
 type Result<T> = std::result::Result<T, LoweringError>;
 
-pub fn lower(program: Program<()>) -> Result<ir::Program> {
+pub fn lower(program: Program<Type>) -> Result<ir::Program> {
     let mut lowerer = Lowerer::default();
     lowerer.lower_program(program)
 }
@@ -42,7 +42,7 @@ struct Lowerer {
 }
 
 impl Lowerer {
-    fn lower_program(&mut self, program: Program<()>) -> Result<ir::Program> {
+    fn lower_program(&mut self, program: Program<Type>) -> Result<ir::Program> {
         let mut functions = Vec::with_capacity(program.functions.len());
         let mut entry = None;
         for func in program.functions {
@@ -100,7 +100,7 @@ impl Lowerer {
 
     fn lower_expression(
         &mut self,
-        exp: Expression<()>,
+        exp: Expression<Type>,
         vars: &HashMap<Ident, Variable>,
     ) -> Result<ir::Expression> {
         use ir::Expression::*;
