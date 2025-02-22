@@ -2,6 +2,9 @@ use crate::{Span, Type};
 
 pub type Ident = String;
 
+pub type UntypedProgram = Program<()>;
+pub type TypedProgram = Program<Type>;
+
 #[derive(Debug)]
 pub struct Program<C>
 where

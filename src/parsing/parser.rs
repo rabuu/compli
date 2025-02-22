@@ -5,7 +5,7 @@ use super::ParseErr;
 
 use crate::{ast, Span, Type};
 
-pub fn parser() -> impl Parser<Token, ast::Program<()>, Error = ParseErr<Token>> + Clone {
+pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Token>> + Clone {
     let ident = select! { Token::Ident(ident) => ident }.labelled("identifier");
 
     let expr = recursive(|expr| {

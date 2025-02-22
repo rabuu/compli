@@ -36,7 +36,7 @@ pub enum TypeCheckError {
 
 type Result<T> = std::result::Result<T, TypeCheckError>;
 
-pub fn type_check(program: ast::Program<()>) -> Result<ast::Program<Type>> {
+pub fn type_check(program: ast::UntypedProgram) -> Result<ast::TypedProgram> {
     let prototypes = program
         .functions
         .iter()
