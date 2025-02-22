@@ -65,10 +65,13 @@ struct TypeChecker {
 }
 
 impl TypeChecker {
-    fn check_function(&self, function: ast::Function<ast::NoContext>) -> Result<ast::Function<Type>> {
+    fn check_function(
+        &self,
+        function: ast::Function<ast::NoContext>,
+    ) -> Result<ast::Function<Type>> {
         let vars = function.params.iter().cloned().collect();
         let typed_body = self.infer_expr(function.body, &vars)?;
-        expect_type(function.ret_type, typed_body.context, function.span)?;
+        expect_type(function.ret_type, typed_body.type_context, function.span)?;
 
         Ok(ast::Function {
             name: function.name,
@@ -88,13 +91,13 @@ impl TypeChecker {
             ast::ExpressionKind::Int(x) => Ok(ast::Expression {
                 kind: ast::ExpressionKind::Int(x),
                 span: expr.span,
-                context: Type::Int,
+                type_context: Type::Int,
             }),
 
             ast::ExpressionKind::Bool(x) => Ok(ast::Expression {
                 kind: ast::ExpressionKind::Bool(x),
                 span: expr.span,
-                context: Type::Bool,
+                type_context: Type::Bool,
             }),
 
             ast::ExpressionKind::Var(x) => {
@@ -109,7 +112,7 @@ impl TypeChecker {
                 Ok(ast::Expression {
                     kind: ast::ExpressionKind::Var(x),
                     span: expr.span,
-                    context: typ,
+                    type_context: typ,
                 })
             }
 
@@ -117,11 +120,11 @@ impl TypeChecker {
                 let arg = self.infer_expr(*inner, vars)?;
                 let typ = match op_kind {
                     ast::UnaOpKind::Neg => {
-                        expect_type(Type::Int, arg.context, arg.span)?;
+                        expect_type(Type::Int, arg.type_context, arg.span)?;
                         Type::Int
                     }
                     ast::UnaOpKind::Not => {
-                        expect_type(Type::Bool, arg.context, arg.span)?;
+                        expect_type(Type::Bool, arg.type_context, arg.span)?;
                         Type::Bool
                     }
                 };
@@ -132,7 +135,7 @@ impl TypeChecker {
                         inner: Box::new(arg),
                     },
                     span: expr.span,
-                    context: typ,
+                    type_context: typ,
                 })
             }
 
@@ -141,18 +144,18 @@ impl TypeChecker {
                 let typed_rhs = self.infer_expr(*rhs, vars)?;
                 let typ = match op_kind {
                     ast::BinOpKind::Add | ast::BinOpKind::Sub => {
-                        expect_type(Type::Int, typed_lhs.context, typed_lhs.span)?;
-                        expect_type(Type::Int, typed_rhs.context, typed_rhs.span)?;
+                        expect_type(Type::Int, typed_lhs.type_context, typed_lhs.span)?;
+                        expect_type(Type::Int, typed_rhs.type_context, typed_rhs.span)?;
                         Type::Int
                     }
                     ast::BinOpKind::Equals | ast::BinOpKind::Less => {
-                        expect_type(Type::Int, typed_lhs.context, typed_lhs.span)?;
-                        expect_type(Type::Int, typed_rhs.context, typed_rhs.span)?;
+                        expect_type(Type::Int, typed_lhs.type_context, typed_lhs.span)?;
+                        expect_type(Type::Int, typed_rhs.type_context, typed_rhs.span)?;
                         Type::Bool
                     }
                     ast::BinOpKind::And => {
-                        expect_type(Type::Bool, typed_lhs.context, typed_lhs.span)?;
-                        expect_type(Type::Bool, typed_rhs.context, typed_rhs.span)?;
+                        expect_type(Type::Bool, typed_lhs.type_context, typed_lhs.span)?;
+                        expect_type(Type::Bool, typed_rhs.type_context, typed_rhs.span)?;
                         Type::Bool
                     }
                 };
@@ -164,7 +167,7 @@ impl TypeChecker {
                         rhs: Box::new(typed_rhs),
                     },
                     span: expr.span,
-                    context: typ,
+                    type_context: typ,
                 })
             }
 
@@ -172,10 +175,10 @@ impl TypeChecker {
                 let typed_bind = self.infer_expr(*bind, vars)?;
 
                 let mut extended_vars = vars.clone();
-                extended_vars.insert(var.clone(), typed_bind.context);
+                extended_vars.insert(var.clone(), typed_bind.type_context);
 
                 let typed_body = self.infer_expr(*body, &extended_vars)?;
-                let typ = typed_body.context;
+                let typ = typed_body.type_context;
 
                 Ok(ast::Expression {
                     kind: ast::ExpressionKind::LetIn {
@@ -184,7 +187,7 @@ impl TypeChecker {
                         body: Box::new(typed_body),
                     },
                     span: expr.span,
-                    context: typ,
+                    type_context: typ,
                 })
             }
 
@@ -194,16 +197,20 @@ impl TypeChecker {
                 else_branch,
             } => {
                 let typed_condition = self.infer_expr(*condition, vars)?;
-                expect_type(Type::Bool, typed_condition.context, typed_condition.span)?;
+                expect_type(
+                    Type::Bool,
+                    typed_condition.type_context,
+                    typed_condition.span,
+                )?;
 
                 let typed_then_branch = self.infer_expr(*then_branch, vars)?;
                 let typed_else_branch = self.infer_expr(*else_branch, vars)?;
                 expect_type(
-                    typed_then_branch.context,
-                    typed_else_branch.context,
+                    typed_then_branch.type_context,
+                    typed_else_branch.type_context,
                     typed_else_branch.span,
                 )?;
-                let typ = typed_then_branch.context;
+                let typ = typed_then_branch.type_context;
 
                 Ok(ast::Expression {
                     kind: ast::ExpressionKind::IfThenElse {
@@ -212,7 +219,7 @@ impl TypeChecker {
                         else_branch: Box::new(typed_else_branch),
                     },
                     span: expr.span,
-                    context: typ,
+                    type_context: typ,
                 })
             }
 
@@ -236,7 +243,7 @@ impl TypeChecker {
                 let mut typed_args = Vec::with_capacity(args.len());
                 for (arg, &param) in args.into_iter().zip(params.iter()) {
                     let typed_arg = self.infer_expr(arg, vars)?;
-                    expect_type(param, typed_arg.context, typed_arg.span)?;
+                    expect_type(param, typed_arg.type_context, typed_arg.span)?;
                     typed_args.push(typed_arg);
                 }
 
@@ -246,7 +253,7 @@ impl TypeChecker {
                         args: typed_args,
                     },
                     span: expr.span,
-                    context: *ret,
+                    type_context: *ret,
                 })
             }
         }

@@ -32,7 +32,7 @@ where
 {
     pub kind: ExpressionKind<C>,
     pub span: Span,
-    pub context: C,
+    pub type_context: C,
 }
 
 impl<C> Expression<C>
@@ -43,7 +43,7 @@ where
         Self {
             kind,
             span,
-            context,
+            type_context: context,
         }
     }
 }
@@ -184,20 +184,40 @@ where
     fn write_self<W: io::Write>(&self, f: &mut W, style: &Style) -> io::Result<()> {
         match &self.kind {
             ExpressionKind::Int(i) => {
-                write!(f, "{}", style.paint(format!("{i} {}", self.context)))
+                write!(f, "{}", style.paint(format!("{i} {}", self.type_context)))
             }
             ExpressionKind::Bool(b) => {
-                write!(f, "{}", style.paint(format!("{b} {}", self.context)))
+                write!(f, "{}", style.paint(format!("{b} {}", self.type_context)))
             }
             ExpressionKind::Var(x) => {
-                write!(f, "{}", style.paint(format!("{x} {}", self.context)))
+                write!(f, "{}", style.paint(format!("{x} {}", self.type_context)))
             }
-            ExpressionKind::UnaOp { op_kind: kind, .. } => write!(f, "{}", style.paint(format!("{kind} {}", self.context))),
-            ExpressionKind::BinOp { op_kind: kind, .. } => write!(f, "{}", style.paint(format!("{kind} {}", self.context))),
-            ExpressionKind::LetIn { var, .. } => write!(f, "{}", style.paint(format!("LET {var} {}", self.context))),
-            ExpressionKind::IfThenElse { .. } => write!(f, "{}", style.paint(format!("IF-THEN-ELSE {}", self.context))),
+            ExpressionKind::UnaOp { op_kind: kind, .. } => write!(
+                f,
+                "{}",
+                style.paint(format!("{kind} {}", self.type_context))
+            ),
+            ExpressionKind::BinOp { op_kind: kind, .. } => write!(
+                f,
+                "{}",
+                style.paint(format!("{kind} {}", self.type_context))
+            ),
+            ExpressionKind::LetIn { var, .. } => write!(
+                f,
+                "{}",
+                style.paint(format!("LET {var} {}", self.type_context))
+            ),
+            ExpressionKind::IfThenElse { .. } => write!(
+                f,
+                "{}",
+                style.paint(format!("IF-THEN-ELSE {}", self.type_context))
+            ),
             ExpressionKind::Call { function, .. } => {
-                write!(f, "{}", style.paint(format!("CALL {function} {}", self.context)))
+                write!(
+                    f,
+                    "{}",
+                    style.paint(format!("CALL {function} {}", self.type_context))
+                )
             }
         }
     }

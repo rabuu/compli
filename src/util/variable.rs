@@ -18,4 +18,3 @@ impl std::fmt::Display for Variable {
         }
     }
 }
-

@@ -112,11 +112,18 @@ impl Lowerer {
                 .get(&v)
                 .copied()
                 .map(|v| Direct(Value::Variable(v)))
-                .ok_or(LoweringError::VariableNotBound { variable: v, span: exp.span }),
+                .ok_or(LoweringError::VariableNotBound {
+                    variable: v,
+                    span: exp.span,
+                }),
             ExpressionKind::UnaOp { .. } => {
                 todo!()
             }
-            ExpressionKind::BinOp { op_kind: kind, lhs, rhs } => {
+            ExpressionKind::BinOp {
+                op_kind: kind,
+                lhs,
+                rhs,
+            } => {
                 let lhs = self.lower_expression(*lhs, vars)?;
                 let rhs = self.lower_expression(*rhs, vars)?;
                 Ok(BinaryOperation(Box::new(ir::BinaryOperation {
