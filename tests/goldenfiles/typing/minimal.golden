@@ -1,1 +1,1 @@
-Program { functions: [Function { name: "main", params: [], ret_type: Int, body: Expression { kind: Int(0), span: 19..20, type_context: Int }, span: 0..20 }] }
+Program { functions: [Function { name: "main", params: [], return_type: Int, body: Expression { kind: Int(0), span: 19..20, type_context: Int }, span: 0..20 }] }

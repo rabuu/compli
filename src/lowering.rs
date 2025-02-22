@@ -64,7 +64,7 @@ impl Lowerer {
                     .into_iter()
                     .map(|(_, var, typ)| (var, typ))
                     .collect(),
-                return_type: func.ret_type,
+                return_type: func.return_type,
             };
 
             let body = self.lower_expression(func.body, &vars)?;
@@ -103,36 +103,32 @@ impl Lowerer {
         exp: Expression<Type>,
         vars: &HashMap<Ident, Variable>,
     ) -> Result<ir::Expression> {
-        use ir::Expression::*;
+        use ir::Expression as E;
         use ir::Value;
         match exp.kind {
-            ExpressionKind::Int(i) => Ok(Direct(Value::Number(i as i32))),
-            ExpressionKind::Bool(b) => Ok(Direct(Value::Boolean(b))),
+            ExpressionKind::Int(i) => Ok(E::Direct(Value::Number(i as i32))),
+            ExpressionKind::Bool(b) => Ok(E::Direct(Value::Boolean(b))),
             ExpressionKind::Var(v) => vars
                 .get(&v)
                 .copied()
-                .map(|v| Direct(Value::Variable(v)))
+                .map(|v| E::Direct(Value::Variable(v)))
                 .ok_or(LoweringError::VariableNotBound {
                     variable: v,
                     span: exp.span,
                 }),
-            ExpressionKind::UnaOp { .. } => {
+            ExpressionKind::Unary { .. } => {
                 todo!()
             }
-            ExpressionKind::BinOp {
-                op_kind: kind,
-                lhs,
-                rhs,
-            } => {
+            ExpressionKind::Binary { op: kind, lhs, rhs } => {
                 let lhs = self.lower_expression(*lhs, vars)?;
                 let rhs = self.lower_expression(*rhs, vars)?;
-                Ok(BinaryOperation(Box::new(ir::BinaryOperation {
+                Ok(E::BinaryOperation(Box::new(ir::BinaryOperation {
                     kind: match kind {
-                        BinOpKind::Add => ir::BinaryOperationKind::Add,
-                        BinOpKind::Sub => ir::BinaryOperationKind::Sub,
-                        BinOpKind::Equals => ir::BinaryOperationKind::Equals,
-                        BinOpKind::Less => ir::BinaryOperationKind::Less,
-                        BinOpKind::And => ir::BinaryOperationKind::And,
+                        BinaryOperation::Add => ir::BinaryOperationKind::Add,
+                        BinaryOperation::Sub => ir::BinaryOperationKind::Sub,
+                        BinaryOperation::Equals => ir::BinaryOperationKind::Equals,
+                        BinaryOperation::Less => ir::BinaryOperationKind::Less,
+                        BinaryOperation::And => ir::BinaryOperationKind::And,
                     },
                     lhs,
                     rhs,
@@ -145,29 +141,27 @@ impl Lowerer {
                 extended_vars.insert(var, fresh);
                 let body = self.lower_expression(*body, &extended_vars)?;
 
-                Ok(LocalBinding(Box::new(ir::LocalBinding {
+                Ok(E::LocalBinding(Box::new(ir::LocalBinding {
                     var: fresh,
                     bind,
                     body,
                 })))
             }
-            ExpressionKind::IfThenElse {
-                condition,
-                then_branch,
-                else_branch,
-            } => Ok(Conditional(Box::new(ir::Conditional {
-                condition: self.lower_expression(*condition, vars)?,
-                then_branch: self.lower_expression(*then_branch, vars)?,
-                else_branch: self.lower_expression(*else_branch, vars)?,
-            }))),
+            ExpressionKind::IfThenElse { condition, yes, no } => {
+                Ok(E::Conditional(Box::new(ir::Conditional {
+                    condition: self.lower_expression(*condition, vars)?,
+                    yes: self.lower_expression(*yes, vars)?,
+                    no: self.lower_expression(*no, vars)?,
+                })))
+            }
             ExpressionKind::Call { function, args } => {
                 let mut lowered_args = Vec::with_capacity(args.len());
                 for arg in args {
                     lowered_args.push(self.lower_expression(arg, vars)?);
                 }
 
-                Ok(FunctionCall {
-                    fn_name: function,
+                Ok(E::FunctionCall {
+                    function_name: function,
                     args: lowered_args,
                 })
             }

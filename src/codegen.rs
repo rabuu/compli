@@ -171,14 +171,14 @@ impl<'ctx> Codegen<'ctx> {
                     .build_conditional_branch(condition, then_bb, else_bb)?;
 
                 self.builder.position_at_end(then_bb);
-                let then_value = self.compile_expression(&c.then_branch, bindings)?;
+                let then_value = self.compile_expression(&c.yes, bindings)?;
                 self.builder.build_unconditional_branch(cont_bb)?;
 
                 // NOTE: Important! Update bb for phi merge because the expression may change it
                 let updated_then_bb = self.builder.get_insert_block().unwrap();
 
                 self.builder.position_at_end(else_bb);
-                let else_value = self.compile_expression(&c.else_branch, bindings)?;
+                let else_value = self.compile_expression(&c.no, bindings)?;
                 self.builder.build_unconditional_branch(cont_bb)?;
 
                 // NOTE: Important! Update bb for phi merge because the expression may change it
@@ -195,20 +195,21 @@ impl<'ctx> Codegen<'ctx> {
 
                 Ok(phi.as_any_value_enum().into_int_value())
             }
-            ir::Expression::FunctionCall { fn_name, args } => {
-                match self.module.get_function(fn_name.as_str()) {
-                    Some(func) => {
-                        let mut compiled_args = Vec::with_capacity(args.len());
-                        for arg in args {
-                            compiled_args.push(self.compile_expression(arg, bindings)?.into());
-                        }
-
-                        let result = self.builder.build_call(func, &compiled_args, "call")?;
-                        Ok(result.as_any_value_enum().into_int_value())
+            ir::Expression::FunctionCall {
+                function_name,
+                args,
+            } => match self.module.get_function(function_name.as_str()) {
+                Some(func) => {
+                    let mut compiled_args = Vec::with_capacity(args.len());
+                    for arg in args {
+                        compiled_args.push(self.compile_expression(arg, bindings)?.into());
                     }
-                    None => Err(CodegenError::UnknownFunction(fn_name.clone())),
+
+                    let result = self.builder.build_call(func, &compiled_args, "call")?;
+                    Ok(result.as_any_value_enum().into_int_value())
                 }
-            }
+                None => Err(CodegenError::UnknownFunction(function_name.clone())),
+            },
         }
     }
 

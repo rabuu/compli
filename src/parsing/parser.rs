@@ -35,15 +35,15 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
                 .delimited_by(just(Token::ParenOpen), just(Token::ParenClose)));
 
         let unary = just(Token::Minus)
-            .to(ast::UnaOpKind::Neg)
+            .to(ast::UnaryOperation::Neg)
             .map_with_span(|e, span: Span| (e, span))
             .or_not()
             .then(atom)
             .map(|(op, inner)| {
                 if let Some(op) = op {
                     let span = Span::new(op.1.start, inner.span.end);
-                    let e = ast::ExpressionKind::UnaOp {
-                        op_kind: op.0,
+                    let e = ast::ExpressionKind::Unary {
+                        op: op.0,
                         inner: Box::new(inner),
                     };
                     ast::Expression::new(e, span, ast::NoContext)
@@ -56,15 +56,15 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
             .clone()
             .then(
                 just(Token::Plus)
-                    .to(ast::BinOpKind::Add)
-                    .or(just(Token::Minus).to(ast::BinOpKind::Sub))
+                    .to(ast::BinaryOperation::Add)
+                    .or(just(Token::Minus).to(ast::BinaryOperation::Sub))
                     .then(unary)
                     .repeated(),
             )
             .foldl(|lhs, (kind, rhs)| {
                 let span = Span::new(lhs.span.start, rhs.span.end);
-                let e = ast::ExpressionKind::BinOp {
-                    op_kind: kind,
+                let e = ast::ExpressionKind::Binary {
+                    op: kind,
                     lhs: Box::new(lhs),
                     rhs: Box::new(rhs),
                 };
@@ -75,15 +75,15 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
             .clone()
             .then(
                 just(Token::Equals)
-                    .to(ast::BinOpKind::Equals)
-                    .or(just(Token::Less).to(ast::BinOpKind::Less))
+                    .to(ast::BinaryOperation::Equals)
+                    .or(just(Token::Less).to(ast::BinaryOperation::Less))
                     .then(sum_or_diff)
                     .repeated(),
             )
             .foldl(|lhs, (kind, rhs)| {
                 let span = Span::new(lhs.span.start, rhs.span.end);
-                let e = ast::ExpressionKind::BinOp {
-                    op_kind: kind,
+                let e = ast::ExpressionKind::Binary {
+                    op: kind,
                     lhs: Box::new(lhs),
                     rhs: Box::new(rhs),
                 };
@@ -94,14 +94,14 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
             .clone()
             .then(
                 just(Token::And)
-                    .to(ast::BinOpKind::And)
+                    .to(ast::BinaryOperation::And)
                     .then(comparison)
                     .repeated(),
             )
             .foldl(|lhs, (kind, rhs)| {
                 let span = Span::new(lhs.span.start, rhs.span.end);
-                let e = ast::ExpressionKind::BinOp {
-                    op_kind: kind,
+                let e = ast::ExpressionKind::Binary {
+                    op: kind,
                     lhs: Box::new(lhs),
                     rhs: Box::new(rhs),
                 };
@@ -117,12 +117,12 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
             .then(expr.clone())
             .then_ignore(just(Token::KwElse))
             .then(expr.clone())
-            .map(|(((start, condition), then_branch), else_branch)| {
-                let span = Span::new(start, else_branch.span.end);
+            .map(|(((start, condition), yes), no)| {
+                let span = Span::new(start, no.span.end);
                 let e = ast::ExpressionKind::IfThenElse {
                     condition: Box::new(condition),
-                    then_branch: Box::new(then_branch),
-                    else_branch: Box::new(else_branch),
+                    yes: Box::new(yes),
+                    no: Box::new(no),
                 };
                 ast::Expression::new(e, span, ast::NoContext)
             });
@@ -167,12 +167,12 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
         .then(typ)
         .then_ignore(just(Token::Assign))
         .then(expr.clone())
-        .map(|((((start, name), params), ret_type), body)| {
+        .map(|((((start, name), params), return_type), body)| {
             let span = Span::new(start, body.span.end);
             ast::Function {
                 name,
                 params,
-                ret_type,
+                return_type,
                 body,
                 span,
             }

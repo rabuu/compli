@@ -20,7 +20,7 @@ where
 {
     pub name: Ident,
     pub params: Vec<(Ident, Type)>,
-    pub ret_type: Type,
+    pub return_type: Type,
     pub body: Expression<C>,
     pub span: Span,
 }
@@ -39,11 +39,11 @@ impl<C> Expression<C>
 where
     C: fmt::Display + Clone,
 {
-    pub fn new(kind: ExpressionKind<C>, span: Span, context: C) -> Self {
+    pub fn new(kind: ExpressionKind<C>, span: Span, type_context: C) -> Self {
         Self {
             kind,
             span,
-            type_context: context,
+            type_context,
         }
     }
 }
@@ -57,13 +57,13 @@ where
     Bool(bool),
     Var(Ident),
 
-    UnaOp {
-        op_kind: UnaOpKind,
+    Unary {
+        op: UnaryOperation,
         inner: Box<Expression<C>>,
     },
 
-    BinOp {
-        op_kind: BinOpKind,
+    Binary {
+        op: BinaryOperation,
         lhs: Box<Expression<C>>,
         rhs: Box<Expression<C>>,
     },
@@ -76,8 +76,8 @@ where
 
     IfThenElse {
         condition: Box<Expression<C>>,
-        then_branch: Box<Expression<C>>,
-        else_branch: Box<Expression<C>>,
+        yes: Box<Expression<C>>,
+        no: Box<Expression<C>>,
     },
 
     Call {
@@ -87,13 +87,13 @@ where
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum UnaOpKind {
+pub enum UnaryOperation {
     Neg,
     Not,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum BinOpKind {
+pub enum BinaryOperation {
     Add,
     Sub,
     Equals,
@@ -126,23 +126,23 @@ where
     }
 }
 
-impl fmt::Display for UnaOpKind {
+impl fmt::Display for UnaryOperation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            UnaOpKind::Neg => write!(f, "-"),
-            UnaOpKind::Not => write!(f, "!"),
+            UnaryOperation::Neg => write!(f, "-"),
+            UnaryOperation::Not => write!(f, "!"),
         }
     }
 }
 
-impl fmt::Display for BinOpKind {
+impl fmt::Display for BinaryOperation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            BinOpKind::Add => write!(f, "+"),
-            BinOpKind::Sub => write!(f, "-"),
-            BinOpKind::Equals => write!(f, "=="),
-            BinOpKind::Less => write!(f, "<"),
-            BinOpKind::And => write!(f, "&&"),
+            BinaryOperation::Add => write!(f, "+"),
+            BinaryOperation::Sub => write!(f, "-"),
+            BinaryOperation::Equals => write!(f, "=="),
+            BinaryOperation::Less => write!(f, "<"),
+            BinaryOperation::And => write!(f, "&&"),
         }
     }
 }
@@ -192,12 +192,12 @@ where
             ExpressionKind::Var(x) => {
                 write!(f, "{}", style.paint(format!("{x} {}", self.type_context)))
             }
-            ExpressionKind::UnaOp { op_kind: kind, .. } => write!(
+            ExpressionKind::Unary { op: kind, .. } => write!(
                 f,
                 "{}",
                 style.paint(format!("{kind} {}", self.type_context))
             ),
-            ExpressionKind::BinOp { op_kind: kind, .. } => write!(
+            ExpressionKind::Binary { op: kind, .. } => write!(
                 f,
                 "{}",
                 style.paint(format!("{kind} {}", self.type_context))
@@ -227,20 +227,14 @@ where
             ExpressionKind::Int(_) | ExpressionKind::Bool(_) | ExpressionKind::Var(_) => {
                 Cow::from(vec![])
             }
-            ExpressionKind::UnaOp { inner, .. } => Cow::from(vec![*inner.clone()]),
-            ExpressionKind::BinOp { lhs, rhs, .. } => Cow::from(vec![*lhs.clone(), *rhs.clone()]),
+            ExpressionKind::Unary { inner, .. } => Cow::from(vec![*inner.clone()]),
+            ExpressionKind::Binary { lhs, rhs, .. } => Cow::from(vec![*lhs.clone(), *rhs.clone()]),
             ExpressionKind::LetIn { bind, body, .. } => {
                 Cow::from(vec![*bind.clone(), *body.clone()])
             }
-            ExpressionKind::IfThenElse {
-                condition,
-                then_branch,
-                else_branch,
-            } => Cow::from(vec![
-                *condition.clone(),
-                *then_branch.clone(),
-                *else_branch.clone(),
-            ]),
+            ExpressionKind::IfThenElse { condition, yes, no } => {
+                Cow::from(vec![*condition.clone(), *yes.clone(), *no.clone()])
+            }
             ExpressionKind::Call { args, .. } => Cow::from(args),
         }
     }

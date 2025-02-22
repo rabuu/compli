@@ -36,7 +36,7 @@ pub enum Value {
 pub enum Expression {
     Direct(Value),
     FunctionCall {
-        fn_name: String,
+        function_name: String,
         args: Vec<Expression>,
     },
     LocalBinding(Box<LocalBinding>),
@@ -70,8 +70,8 @@ pub enum BinaryOperationKind {
 #[derive(Debug, Clone)]
 pub struct Conditional {
     pub condition: Expression,
-    pub then_branch: Expression,
-    pub else_branch: Expression,
+    pub yes: Expression,
+    pub no: Expression,
 }
 
 use ptree::{print_tree, TreeItem};
@@ -144,8 +144,8 @@ impl TreeItem for Expression {
                 Value::Boolean(b) => write!(f, "{}", style.paint(b)),
                 Value::Variable(v) => write!(f, "{}", style.paint(v)),
             },
-            Expression::FunctionCall { fn_name, .. } => {
-                write!(f, "{}", style.paint(format!("CALL {fn_name}")))
+            Expression::FunctionCall { function_name, .. } => {
+                write!(f, "{}", style.paint(format!("CALL {function_name}")))
             }
             Expression::LocalBinding(x) => write!(f, "{}", style.paint(format!("LET {}", x.var))),
             Expression::BinaryOperation(x) => write!(f, "{}", style.paint(x.kind)),
@@ -159,11 +159,9 @@ impl TreeItem for Expression {
             Expression::FunctionCall { args, .. } => Cow::from(args.clone()),
             Expression::LocalBinding(x) => Cow::from(vec![x.bind.clone(), x.body.clone()]),
             Expression::BinaryOperation(x) => Cow::from(vec![x.lhs.clone(), x.rhs.clone()]),
-            Expression::Conditional(x) => Cow::from(vec![
-                x.condition.clone(),
-                x.then_branch.clone(),
-                x.else_branch.clone(),
-            ]),
+            Expression::Conditional(x) => {
+                Cow::from(vec![x.condition.clone(), x.yes.clone(), x.no.clone()])
+            }
         }
     }
 }
