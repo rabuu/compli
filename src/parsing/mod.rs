@@ -43,7 +43,7 @@ pub enum ParsingError {
     },
 }
 
-pub fn parse(source: &str) -> Result<ast::Program, Vec<ParsingError>> {
+pub fn parse(source: &str) -> Result<ast::Program<()>, Vec<ParsingError>> {
     let end_of_input = Span::marker(source.chars().count());
 
     let char_iter = source

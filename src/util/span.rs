@@ -1,8 +1,6 @@
 use std::fmt;
 use std::ops::Range;
 
-pub type Spanned<T> = (T, Span);
-
 /// A simple Span type, very similar to [Range<usize>] but [Copy].
 ///
 /// It implements [chumsky::Span] and can be transformed to [miette::SourceSpan].

@@ -5,17 +5,17 @@ use super::ParseErr;
 
 use crate::{ast, Span, Type};
 
-pub fn parser() -> impl Parser<Token, ast::Program, Error = ParseErr<Token>> + Clone {
+pub fn parser() -> impl Parser<Token, ast::Program<()>, Error = ParseErr<Token>> + Clone {
     let ident = select! { Token::Ident(ident) => ident }.labelled("identifier");
 
     let expr = recursive(|expr| {
         let val = select! {
-            Token::Int(x) => ast::Expression::Int(x),
-            Token::Bool(x) => ast::Expression::Bool(x),
+            Token::Int(x) => ast::ExpressionKind::Int(x),
+            Token::Bool(x) => ast::ExpressionKind::Bool(x),
         }
         .labelled("value");
 
-        let var = ident.map(ast::Expression::Var);
+        let var = ident.map(ast::ExpressionKind::Var);
 
         let items = expr
             .clone()
@@ -24,12 +24,12 @@ pub fn parser() -> impl Parser<Token, ast::Program, Error = ParseErr<Token>> + C
 
         let call = ident
             .then(items.delimited_by(just(Token::ParenOpen), just(Token::ParenClose)))
-            .map(|(function, args)| ast::Expression::Call { function, args });
+            .map(|(function, args)| ast::ExpressionKind::Call { function, args });
 
         let atom = val
             .or(call)
             .or(var)
-            .map_with_span(|e, span: Span| (e, span))
+            .map_with_span(|kind, span: Span| ast::Expression::new(kind, span, ()))
             .or(expr
                 .clone()
                 .delimited_by(just(Token::ParenOpen), just(Token::ParenClose)));
@@ -41,12 +41,12 @@ pub fn parser() -> impl Parser<Token, ast::Program, Error = ParseErr<Token>> + C
             .then(atom)
             .map(|(op, inner)| {
                 if let Some(op) = op {
-                    let span = Span::new(op.1.start, inner.1.end);
-                    let e = ast::Expression::UnaOp {
-                        kind: op.0,
+                    let span = Span::new(op.1.start, inner.span.end);
+                    let e = ast::ExpressionKind::UnaOp {
+                        op_kind: op.0,
                         inner: Box::new(inner),
                     };
-                    (e, span)
+                    ast::Expression::new(e, span, ())
                 } else {
                     inner
                 }
@@ -62,13 +62,13 @@ pub fn parser() -> impl Parser<Token, ast::Program, Error = ParseErr<Token>> + C
                     .repeated(),
             )
             .foldl(|lhs, (kind, rhs)| {
-                let span = Span::new(lhs.1.start, rhs.1.end);
-                let e = ast::Expression::BinOp {
-                    kind,
+                let span = Span::new(lhs.span.start, rhs.span.end);
+                let e = ast::ExpressionKind::BinOp {
+                    op_kind: kind,
                     lhs: Box::new(lhs),
                     rhs: Box::new(rhs),
                 };
-                (e, span)
+                ast::Expression::new(e, span, ())
             });
 
         let comparison = sum_or_diff
@@ -81,13 +81,13 @@ pub fn parser() -> impl Parser<Token, ast::Program, Error = ParseErr<Token>> + C
                     .repeated(),
             )
             .foldl(|lhs, (kind, rhs)| {
-                let span = Span::new(lhs.1.start, rhs.1.end);
-                let e = ast::Expression::BinOp {
-                    kind,
+                let span = Span::new(lhs.span.start, rhs.span.end);
+                let e = ast::ExpressionKind::BinOp {
+                    op_kind: kind,
                     lhs: Box::new(lhs),
                     rhs: Box::new(rhs),
                 };
-                (e, span)
+                ast::Expression::new(e, span, ())
             });
 
         let and = comparison
@@ -99,13 +99,13 @@ pub fn parser() -> impl Parser<Token, ast::Program, Error = ParseErr<Token>> + C
                     .repeated(),
             )
             .foldl(|lhs, (kind, rhs)| {
-                let span = Span::new(lhs.1.start, rhs.1.end);
-                let e = ast::Expression::BinOp {
-                    kind,
+                let span = Span::new(lhs.span.start, rhs.span.end);
+                let e = ast::ExpressionKind::BinOp {
+                    op_kind: kind,
                     lhs: Box::new(lhs),
                     rhs: Box::new(rhs),
                 };
-                (e, span)
+                ast::Expression::new(e, span, ())
             });
 
         let term = and.labelled("term");
@@ -118,13 +118,13 @@ pub fn parser() -> impl Parser<Token, ast::Program, Error = ParseErr<Token>> + C
             .then_ignore(just(Token::KwElse))
             .then(expr.clone())
             .map(|(((start, condition), then_branch), else_branch)| {
-                let span = Span::new(start, else_branch.1.end);
-                let e = ast::Expression::IfThenElse {
+                let span = Span::new(start, else_branch.span.end);
+                let e = ast::ExpressionKind::IfThenElse {
                     condition: Box::new(condition),
                     then_branch: Box::new(then_branch),
                     else_branch: Box::new(else_branch),
                 };
-                (e, span)
+                ast::Expression::new(e, span, ())
             });
 
         let let_in = just(Token::KwLet)
@@ -135,13 +135,13 @@ pub fn parser() -> impl Parser<Token, ast::Program, Error = ParseErr<Token>> + C
             .then_ignore(just(Token::KwIn))
             .then(expr.clone())
             .map(|(((start, var), bind), body)| {
-                let span = Span::new(start, body.1.end);
-                let e = ast::Expression::LetIn {
+                let span = Span::new(start, body.span.end);
+                let e = ast::ExpressionKind::LetIn {
                     var,
                     bind: Box::new(bind),
                     body: Box::new(body),
                 };
-                (e, span)
+                ast::Expression::new(e, span, ())
             });
 
         choice((if_then_else, let_in, term))
@@ -168,14 +168,14 @@ pub fn parser() -> impl Parser<Token, ast::Program, Error = ParseErr<Token>> + C
         .then_ignore(just(Token::Assign))
         .then(expr.clone())
         .map(|((((start, name), params), ret_type), body)| {
-            let span = Span::new(start, body.1.end);
-            let func = ast::Function {
+            let span = Span::new(start, body.span.end);
+            ast::Function {
                 name,
                 params,
                 ret_type,
                 body,
-            };
-            (func, span)
+                span,
+            }
         });
 
     func.repeated()

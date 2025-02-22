@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use miette::Diagnostic;
 use thiserror::Error;
 
-use crate::{ast::*, ir, Span, Spanned, Type, Variable};
+use crate::{ast::*, ir, Span, Type, Variable};
 
 #[derive(Debug, Error, Diagnostic)]
 pub enum LoweringError {
@@ -31,7 +31,7 @@ pub enum LoweringError {
 
 type Result<T> = std::result::Result<T, LoweringError>;
 
-pub fn lower(program: Program) -> Result<ir::Program> {
+pub fn lower(program: Program<()>) -> Result<ir::Program> {
     let mut lowerer = Lowerer::default();
     lowerer.lower_program(program)
 }
@@ -42,10 +42,10 @@ struct Lowerer {
 }
 
 impl Lowerer {
-    fn lower_program(&mut self, program: Program) -> Result<ir::Program> {
+    fn lower_program(&mut self, program: Program<()>) -> Result<ir::Program> {
         let mut functions = Vec::with_capacity(program.functions.len());
         let mut entry = None;
-        for (func, span) in program.functions {
+        for func in program.functions {
             let param_vars: Vec<(Ident, Variable, Type)> = func
                 .params
                 .into_iter()
@@ -75,14 +75,14 @@ impl Lowerer {
                 if !function.prototype.parameters.is_empty() {
                     return Err(LoweringError::MalformedEntryFunction {
                         context: String::from("The main function does not take any arguments"),
-                        span,
+                        span: func.span,
                     });
                 }
 
                 if function.prototype.return_type != Type::Int {
                     return Err(LoweringError::MalformedEntryFunction {
                         context: String::from("The main function does always return the type int"),
-                        span,
+                        span: func.span,
                     });
                 }
 
@@ -100,23 +100,23 @@ impl Lowerer {
 
     fn lower_expression(
         &mut self,
-        (exp, span): Spanned<Expression>,
+        exp: Expression<()>,
         vars: &HashMap<Ident, Variable>,
     ) -> Result<ir::Expression> {
         use ir::Expression::*;
         use ir::Value;
-        match exp {
-            Expression::Int(i) => Ok(Direct(Value::Number(i as i32))),
-            Expression::Bool(b) => Ok(Direct(Value::Boolean(b))),
-            Expression::Var(v) => vars
+        match exp.kind {
+            ExpressionKind::Int(i) => Ok(Direct(Value::Number(i as i32))),
+            ExpressionKind::Bool(b) => Ok(Direct(Value::Boolean(b))),
+            ExpressionKind::Var(v) => vars
                 .get(&v)
                 .copied()
                 .map(|v| Direct(Value::Variable(v)))
-                .ok_or(LoweringError::VariableNotBound { variable: v, span }),
-            Expression::UnaOp { .. } => {
+                .ok_or(LoweringError::VariableNotBound { variable: v, span: exp.span }),
+            ExpressionKind::UnaOp { .. } => {
                 todo!()
             }
-            Expression::BinOp { kind, lhs, rhs } => {
+            ExpressionKind::BinOp { op_kind: kind, lhs, rhs } => {
                 let lhs = self.lower_expression(*lhs, vars)?;
                 let rhs = self.lower_expression(*rhs, vars)?;
                 Ok(BinaryOperation(Box::new(ir::BinaryOperation {
@@ -131,7 +131,7 @@ impl Lowerer {
                     rhs,
                 })))
             }
-            Expression::LetIn { var, bind, body } => {
+            ExpressionKind::LetIn { var, bind, body } => {
                 let bind = self.lower_expression(*bind, vars)?;
                 let fresh = self.fresh_variable();
                 let mut extended_vars = vars.clone();
@@ -144,7 +144,7 @@ impl Lowerer {
                     body,
                 })))
             }
-            Expression::IfThenElse {
+            ExpressionKind::IfThenElse {
                 condition,
                 then_branch,
                 else_branch,
@@ -153,7 +153,7 @@ impl Lowerer {
                 then_branch: self.lower_expression(*then_branch, vars)?,
                 else_branch: self.lower_expression(*else_branch, vars)?,
             }))),
-            Expression::Call { function, args } => {
+            ExpressionKind::Call { function, args } => {
                 let mut lowered_args = Vec::with_capacity(args.len());
                 for arg in args {
                     lowered_args.push(self.lower_expression(arg, vars)?);

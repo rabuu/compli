@@ -10,7 +10,7 @@ pub use codegen::{compile, CodegenError};
 pub use lowering::{lower, LoweringError};
 pub use parsing::{parse, ParsingError};
 pub use type_checking::{type_check, TypeCheckError};
-pub use util::{Span, Spanned, Variable};
+pub use util::{Span, Variable};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Type {

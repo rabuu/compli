@@ -1,52 +1,85 @@
-use crate::{Spanned, Type};
+use crate::{Span, Type};
 
 pub type Ident = String;
 
 #[derive(Debug)]
-pub struct Program {
-    pub functions: Vec<Spanned<Function>>,
+pub struct Program<C>
+where
+    C: fmt::Debug + Clone,
+{
+    pub functions: Vec<Function<C>>,
 }
 
 #[derive(Debug, Clone)]
-pub struct Function {
+pub struct Function<C>
+where
+    C: fmt::Debug + Clone,
+{
     pub name: Ident,
     pub params: Vec<(Ident, Type)>,
     pub ret_type: Type,
-    pub body: Spanned<Expression>,
+    pub body: Expression<C>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone)]
-pub enum Expression {
+pub struct Expression<C>
+where
+    C: fmt::Debug + Clone,
+{
+    pub kind: ExpressionKind<C>,
+    pub span: Span,
+    pub context: C,
+}
+
+impl<C> Expression<C>
+where
+    C: fmt::Debug + Clone,
+{
+    pub fn new(kind: ExpressionKind<C>, span: Span, context: C) -> Self {
+        Self {
+            kind,
+            span,
+            context,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum ExpressionKind<C>
+where
+    C: fmt::Debug + Clone,
+{
     Int(u16),
     Bool(bool),
     Var(Ident),
 
     UnaOp {
-        kind: UnaOpKind,
-        inner: Box<Spanned<Expression>>,
+        op_kind: UnaOpKind,
+        inner: Box<Expression<C>>,
     },
 
     BinOp {
-        kind: BinOpKind,
-        lhs: Box<Spanned<Expression>>,
-        rhs: Box<Spanned<Expression>>,
+        op_kind: BinOpKind,
+        lhs: Box<Expression<C>>,
+        rhs: Box<Expression<C>>,
     },
 
     LetIn {
         var: Ident,
-        bind: Box<Spanned<Expression>>,
-        body: Box<Spanned<Expression>>,
+        bind: Box<Expression<C>>,
+        body: Box<Expression<C>>,
     },
 
     IfThenElse {
-        condition: Box<Spanned<Expression>>,
-        then_branch: Box<Spanned<Expression>>,
-        else_branch: Box<Spanned<Expression>>,
+        condition: Box<Expression<C>>,
+        then_branch: Box<Expression<C>>,
+        else_branch: Box<Expression<C>>,
     },
 
     Call {
         function: Ident,
-        args: Vec<Spanned<Expression>>,
+        args: Vec<Expression<C>>,
     },
 }
 
@@ -69,10 +102,13 @@ use ptree::{print_tree, Style, TreeItem};
 use std::borrow::Cow;
 use std::{fmt, io};
 
-impl Program {
+impl<C> Program<C>
+where
+    C: fmt::Debug + Clone,
+{
     pub fn pretty_print(&self) -> io::Result<()> {
         for func in &self.functions {
-            print_tree(&func.0)?;
+            print_tree(func)?;
         }
         Ok(())
     }
@@ -99,8 +135,11 @@ impl fmt::Display for BinOpKind {
     }
 }
 
-impl TreeItem for Function {
-    type Child = Expression;
+impl<C> TreeItem for Function<C>
+where
+    C: fmt::Debug + Clone,
+{
+    type Child = Expression<C>;
 
     fn write_self<W: io::Write>(&self, f: &mut W, style: &Style) -> io::Result<()> {
         let mut fn_string = self.name.clone();
@@ -120,47 +159,51 @@ impl TreeItem for Function {
     }
 
     fn children(&self) -> Cow<[Self::Child]> {
-        Cow::from(vec![self.body.clone().0])
+        Cow::from(vec![self.body.clone()])
     }
 }
 
-impl TreeItem for Expression {
+impl<C> TreeItem for Expression<C>
+where
+    C: fmt::Debug + Clone,
+{
     type Child = Self;
 
     fn write_self<W: io::Write>(&self, f: &mut W, style: &Style) -> io::Result<()> {
-        match self {
-            Expression::Int(i) => write!(f, "{}", style.paint(i)),
-            Expression::Bool(b) => write!(f, "{}", style.paint(b)),
-            Expression::Var(x) => write!(f, "{}", style.paint(x)),
-            Expression::UnaOp { kind, .. } => write!(f, "{}", style.paint(kind)),
-            Expression::BinOp { kind, .. } => write!(f, "{}", style.paint(kind)),
-            Expression::LetIn { var, .. } => write!(f, "{}", style.paint(format!("LET {var}"))),
-            Expression::IfThenElse { .. } => write!(f, "{}", style.paint("IF-THEN-ELSE")),
-            Expression::Call { function, .. } => {
+        match &self.kind {
+            ExpressionKind::Int(i) => write!(f, "{}", style.paint(i)),
+            ExpressionKind::Bool(b) => write!(f, "{}", style.paint(b)),
+            ExpressionKind::Var(x) => write!(f, "{}", style.paint(x)),
+            ExpressionKind::UnaOp { op_kind: kind, .. } => write!(f, "{}", style.paint(kind)),
+            ExpressionKind::BinOp { op_kind: kind, .. } => write!(f, "{}", style.paint(kind)),
+            ExpressionKind::LetIn { var, .. } => write!(f, "{}", style.paint(format!("LET {var}"))),
+            ExpressionKind::IfThenElse { .. } => write!(f, "{}", style.paint("IF-THEN-ELSE")),
+            ExpressionKind::Call { function, .. } => {
                 write!(f, "{}", style.paint(format!("CALL {function}")))
             }
         }
     }
 
     fn children(&self) -> Cow<[Self::Child]> {
-        match self {
-            Expression::Int(_) | Expression::Bool(_) | Expression::Var(_) => Cow::from(vec![]),
-            Expression::UnaOp { inner, .. } => Cow::from(vec![inner.clone().0]),
-            Expression::BinOp { lhs, rhs, .. } => Cow::from(vec![lhs.clone().0, rhs.clone().0]),
-            Expression::LetIn { bind, body, .. } => Cow::from(vec![bind.clone().0, body.clone().0]),
-            Expression::IfThenElse {
+        match &self.kind {
+            ExpressionKind::Int(_) | ExpressionKind::Bool(_) | ExpressionKind::Var(_) => {
+                Cow::from(vec![])
+            }
+            ExpressionKind::UnaOp { inner, .. } => Cow::from(vec![*inner.clone()]),
+            ExpressionKind::BinOp { lhs, rhs, .. } => Cow::from(vec![*lhs.clone(), *rhs.clone()]),
+            ExpressionKind::LetIn { bind, body, .. } => {
+                Cow::from(vec![*bind.clone(), *body.clone()])
+            }
+            ExpressionKind::IfThenElse {
                 condition,
                 then_branch,
                 else_branch,
             } => Cow::from(vec![
-                condition.clone().0,
-                then_branch.clone().0,
-                else_branch.clone().0,
+                *condition.clone(),
+                *then_branch.clone(),
+                *else_branch.clone(),
             ]),
-            Expression::Call { args, .. } => {
-                let args: Vec<Self> = args.iter().map(|(arg, _)| arg).cloned().collect();
-                Cow::from(args)
-            }
+            ExpressionKind::Call { args, .. } => Cow::from(args),
         }
     }
 }
