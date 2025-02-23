@@ -1,6 +1,6 @@
 func main(): int = (
 	let a = 1,
-		b: bool = 2 + a,
+		b = 2 + a,
 		b: bool = b < 10
 	in
 		if b then 1 else 2

@@ -16,3 +16,8 @@ fn typing_test(source: &str, goldenfile: &str) {
 fn minimal() {
     typing_test(include_str!("testfiles/minimal.compli"), "minimal.golden");
 }
+
+#[test]
+fn complex_let() {
+    typing_test(include_str!("testfiles/complex-let.compli"), "complex-let.golden");
+}

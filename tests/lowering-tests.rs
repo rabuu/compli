@@ -17,3 +17,8 @@ fn lowering_test(source: &str, goldenfile: &str) {
 fn minimal() {
     lowering_test(include_str!("testfiles/minimal.compli"), "minimal.golden");
 }
+
+#[test]
+fn complex_let() {
+    lowering_test(include_str!("testfiles/complex-let.compli"), "complex-let.golden");
+}

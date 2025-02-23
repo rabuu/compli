@@ -15,3 +15,8 @@ fn parsing_test(source: &str, goldenfile: &str) {
 fn minimal() {
     parsing_test(include_str!("testfiles/minimal.compli"), "minimal.golden");
 }
+
+#[test]
+fn complex_let() {
+    parsing_test(include_str!("testfiles/complex-let.compli"), "complex-let.golden");
+}
