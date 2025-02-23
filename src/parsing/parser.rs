@@ -8,6 +8,11 @@ use crate::{ast, Span, Type};
 pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Token>> + Clone {
     let ident = select! { Token::Ident(ident) => ident }.labelled("identifier");
 
+    let typ = choice((
+        just(Token::KwInt).to(Type::Int),
+        just(Token::KwBool).to(Type::Bool),
+    ));
+
     let expr = recursive(|expr| {
         let val = select! {
             Token::Int(x) => ast::ExpressionKind::Int(x),
@@ -129,16 +134,22 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
 
         let let_in = just(Token::KwLet)
             .map_with_span(|_, span: Span| span.start)
-            .then(ident)
-            .then_ignore(just(Token::Assign))
-            .then(expr.clone())
+            .then(
+                ident
+                    .then(just(Token::Colon).ignore_then(typ.clone()).or_not())
+                    .then_ignore(just(Token::Assign))
+                    .then(expr.clone())
+                    .separated_by(just(Token::Comma))
+                    .allow_trailing()
+                    .at_least(1)
+            )
             .then_ignore(just(Token::KwIn))
             .then(expr.clone())
-            .map(|(((start, var), bind), body)| {
+            .map(|((start, binds), body)| {
+                let binds = binds.into_iter().map(|((var, annotation), bind)| (var, annotation, bind)).collect();
                 let span = Span::new(start, body.span.end);
                 let e = ast::ExpressionKind::LetIn {
-                    var,
-                    bind: Box::new(bind),
+                    binds,
                     body: Box::new(body),
                 };
                 ast::Expression::new(e, span, ast::NoContext)
@@ -146,11 +157,6 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
 
         choice((if_then_else, let_in, term))
     });
-
-    let typ = choice((
-        just(Token::KwInt).to(Type::Int),
-        just(Token::KwBool).to(Type::Bool),
-    ));
 
     let func = just(Token::KwFunc)
         .map_with_span(|_, span: Span| span.start)

@@ -174,19 +174,28 @@ impl TypeChecker {
                 })
             }
 
-            ast::ExpressionKind::LetIn { var, bind, body } => {
-                let typed_bind = self.infer_expr(*bind, vars)?;
-
+            ast::ExpressionKind::LetIn { binds, body } => {
                 let mut extended_vars = vars.clone();
-                extended_vars.insert(var.clone(), typed_bind.type_context);
+
+                let mut typed_binds = Vec::with_capacity(binds.len());
+                for (var, annotation, bind) in binds {
+                    let typed_bind = self.infer_expr(bind, &extended_vars)?;
+                    let typ = typed_bind.type_context;
+                    let bind_span = typed_bind.span;
+                    extended_vars.insert(var.clone(), typ);
+                    typed_binds.push((var, annotation, typed_bind));
+
+                    if let Some(annotation) = annotation {
+                        expect_type(annotation, typ, bind_span)?;
+                    }
+                }
 
                 let typed_body = self.infer_expr(*body, &extended_vars)?;
                 let typ = typed_body.type_context;
 
                 Ok(ast::Expression {
                     kind: ast::ExpressionKind::LetIn {
-                        var,
-                        bind: Box::new(typed_bind),
+                        binds: typed_binds,
                         body: Box::new(typed_body),
                     },
                     span: expr.span,

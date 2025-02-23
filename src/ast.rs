@@ -69,8 +69,7 @@ where
     },
 
     LetIn {
-        var: Ident,
-        bind: Box<Expression<C>>,
+        binds: Vec<(Ident, Option<Type>, Expression<C>)>,
         body: Box<Expression<C>>,
     },
 
@@ -202,11 +201,19 @@ where
                 "{}",
                 style.paint(format!("{kind} {}", self.type_context))
             ),
-            ExpressionKind::LetIn { var, .. } => write!(
+            ExpressionKind::LetIn { binds, .. } => {
+                let mut var_list = String::new();
+                for (i, (var, _, _)) in binds.iter().enumerate() {
+                    var_list.push_str(var);
+                    if i != binds.len() - 1 {
+                        var_list.push_str(", ");
+                    }
+                }
+                write!(
                 f,
                 "{}",
-                style.paint(format!("LET {var} {}", self.type_context))
-            ),
+                style.paint(format!("LET {var_list} {}", self.type_context))
+            )}
             ExpressionKind::IfThenElse { .. } => write!(
                 f,
                 "{}",
@@ -229,8 +236,10 @@ where
             }
             ExpressionKind::Unary { inner, .. } => Cow::from(vec![*inner.clone()]),
             ExpressionKind::Binary { lhs, rhs, .. } => Cow::from(vec![*lhs.clone(), *rhs.clone()]),
-            ExpressionKind::LetIn { bind, body, .. } => {
-                Cow::from(vec![*bind.clone(), *body.clone()])
+            ExpressionKind::LetIn { binds, body, .. } => {
+                let mut children: Vec<_> = binds.iter().map(|(_, _, bind)| bind.clone()).collect();
+                children.push(*body.clone());
+                Cow::from(children)
             }
             ExpressionKind::IfThenElse { condition, yes, no } => {
                 Cow::from(vec![*condition.clone(), *yes.clone(), *no.clone()])

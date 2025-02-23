@@ -134,18 +134,43 @@ impl Lowerer {
                     rhs,
                 })))
             }
-            ExpressionKind::LetIn { var, bind, body } => {
-                let bind = self.lower_expression(*bind, vars)?;
-                let fresh = self.fresh_variable();
+            ExpressionKind::LetIn { mut binds, body } => {
                 let mut extended_vars = vars.clone();
-                extended_vars.insert(var, fresh);
-                let body = self.lower_expression(*body, &extended_vars)?;
 
-                Ok(E::LocalBinding(Box::new(ir::LocalBinding {
-                    var: fresh,
-                    bind,
-                    body,
-                })))
+                if binds.len() <= 1 {
+                    let (var, _, bind) = binds.pop().expect("at least 1");
+                    let bind = self.lower_expression(bind, vars)?;
+
+                    let fresh = self.fresh_variable();
+                    extended_vars.insert(var, fresh);
+
+                    let body = self.lower_expression(*body, &extended_vars)?;
+
+                    Ok(E::LocalBinding(Box::new(ir::LocalBinding {
+                        var: fresh,
+                        bind,
+                        body,
+                    })))
+                } else {
+                    let (last_var, _, last_expr) = binds.remove(0);
+                    let bind = self.lower_expression(last_expr, vars)?;
+
+                    let fresh = self.fresh_variable();
+                    extended_vars.insert(last_var, fresh);
+
+                    let rest = Expression {
+                        kind: ExpressionKind::LetIn { binds, body },
+                        span: exp.span,
+                        type_context: exp.type_context,
+                    };
+                    let rest = self.lower_expression(rest, &extended_vars)?;
+
+                    Ok(E::LocalBinding(Box::new(ir::LocalBinding {
+                        var: fresh,
+                        bind,
+                        body: rest,
+                    })))
+                }
             }
             ExpressionKind::IfThenElse { condition, yes, no } => {
                 Ok(E::Conditional(Box::new(ir::Conditional {
