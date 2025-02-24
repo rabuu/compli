@@ -1,3 +1,7 @@
+//! Builtin runtime functions
+//!
+//! Here are prototype definitions for functions that exist in compli's runtime.
+
 use crate::ir::FunctionPrototype;
 use crate::{Type, Variable};
 
