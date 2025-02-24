@@ -1,3 +1,11 @@
+//! Intermediate representation defintions
+//!
+//! This module defines the intermediate representation of a compli program.
+//! It is the target of the lowering step and is then used to generate LLVM IR from.
+//!
+//! Since we are using [inkwell] and its recursive builder, our intermediate representation can
+//! still be quite high-level and tree-like.
+
 use crate::{Type, Variable};
 
 #[derive(Debug)]
@@ -73,6 +81,9 @@ pub struct Conditional {
     pub yes: Expression,
     pub no: Expression,
 }
+
+/* PRETTY PRINTING */
+// see `ptree` crate
 
 use ptree::{print_tree, TreeItem};
 use std::borrow::Cow;
