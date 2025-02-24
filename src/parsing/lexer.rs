@@ -115,4 +115,3 @@ impl fmt::Display for Token {
         }
     }
 }
-

@@ -137,17 +137,19 @@ impl Lowerer {
             ExpressionKind::Binary { op: kind, lhs, rhs } => {
                 let lhs = self.lower_expression(*lhs, vars)?;
                 let rhs = self.lower_expression(*rhs, vars)?;
-                Ok(ir::Expression::BinaryOperation(Box::new(ir::BinaryOperation {
-                    kind: match kind {
-                        BinaryOperation::Add => ir::BinaryOperationKind::Add,
-                        BinaryOperation::Sub => ir::BinaryOperationKind::Sub,
-                        BinaryOperation::Equals => ir::BinaryOperationKind::Equals,
-                        BinaryOperation::Less => ir::BinaryOperationKind::Less,
-                        BinaryOperation::And => ir::BinaryOperationKind::And,
+                Ok(ir::Expression::BinaryOperation(Box::new(
+                    ir::BinaryOperation {
+                        kind: match kind {
+                            BinaryOperation::Add => ir::BinaryOperationKind::Add,
+                            BinaryOperation::Sub => ir::BinaryOperationKind::Sub,
+                            BinaryOperation::Equals => ir::BinaryOperationKind::Equals,
+                            BinaryOperation::Less => ir::BinaryOperationKind::Less,
+                            BinaryOperation::And => ir::BinaryOperationKind::And,
+                        },
+                        lhs,
+                        rhs,
                     },
-                    lhs,
-                    rhs,
-                })))
+                )))
             }
             ExpressionKind::LetIn { mut binds, body } => {
                 let mut extended_vars = vars.clone();
