@@ -112,7 +112,11 @@ impl TypeChecker {
 
         let vars = function.params.iter().cloned().collect();
         let typed_body = self.infer_expr(function.body, &vars)?;
-        expect_type(function.return_type, typed_body.type_context, typed_body.span)?;
+        expect_type(
+            function.return_type,
+            typed_body.type_context,
+            typed_body.span,
+        )?;
 
         Ok(ast::Function {
             name: function.name,

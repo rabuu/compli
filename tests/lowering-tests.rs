@@ -20,5 +20,8 @@ fn minimal() {
 
 #[test]
 fn complex_let() {
-    lowering_test(include_str!("testfiles/complex-let.compli"), "complex-let.golden");
+    lowering_test(
+        include_str!("testfiles/complex-let.compli"),
+        "complex-let.golden",
+    );
 }

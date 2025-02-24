@@ -141,12 +141,15 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
                     .then(expr.clone())
                     .separated_by(just(Token::Comma))
                     .allow_trailing()
-                    .at_least(1)
+                    .at_least(1),
             )
             .then_ignore(just(Token::KwIn))
             .then(expr.clone())
             .map(|((start, binds), body)| {
-                let binds = binds.into_iter().map(|((var, annotation), bind)| (var, annotation, bind)).collect();
+                let binds = binds
+                    .into_iter()
+                    .map(|((var, annotation), bind)| (var, annotation, bind))
+                    .collect();
                 let span = Span::new(start, body.span.end);
                 let e = ast::ExpressionKind::LetIn {
                     binds,
@@ -173,17 +176,19 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
         .then(typ)
         .then_ignore(just(Token::Assign))
         .then(expr.clone())
-        .map(|((((start, (name, name_span)), params), return_type), body)| {
-            let full_span = Span::new(start, body.span.end);
-            ast::Function {
-                name,
-                params,
-                return_type,
-                body,
-                full_span,
-                name_span,
-            }
-        });
+        .map(
+            |((((start, (name, name_span)), params), return_type), body)| {
+                let full_span = Span::new(start, body.span.end);
+                ast::Function {
+                    name,
+                    params,
+                    return_type,
+                    body,
+                    full_span,
+                    name_span,
+                }
+            },
+        );
 
     func.repeated()
         .collect()

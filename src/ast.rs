@@ -211,10 +211,11 @@ where
                     }
                 }
                 write!(
-                f,
-                "{}",
-                style.paint(format!("LET {var_list} {}", self.type_context))
-            )}
+                    f,
+                    "{}",
+                    style.paint(format!("LET {var_list} {}", self.type_context))
+                )
+            }
             ExpressionKind::IfThenElse { .. } => write!(
                 f,
                 "{}",
