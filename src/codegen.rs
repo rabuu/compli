@@ -13,12 +13,8 @@ use thiserror::Error;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
-use inkwell::types::{
-    BasicMetadataTypeEnum, BasicType, BasicTypeEnum,
-};
-use inkwell::values::{
-    BasicValue, BasicValueEnum, FunctionValue,
-};
+use inkwell::types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum};
+use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue};
 
 use crate::{builtin, ir, Type, Variable};
 
@@ -156,9 +152,13 @@ impl<'ctx> Codegen<'ctx> {
             ir::Expression::UnaryOperation(unaop) => {
                 let arg = self.compile_expression(&unaop.inner, bindings)?;
                 match unaop.kind {
-                    ir::UnaryOperationKind::Neg => Ok(self
+                    ir::UnaryOperationKind::NegInt => Ok(self
                         .builder
                         .build_int_neg(arg.into_int_value(), "neg")?
+                        .as_basic_value_enum()),
+                    ir::UnaryOperationKind::NegFloat => Ok(self
+                        .builder
+                        .build_float_neg(arg.into_float_value(), "neg")?
                         .as_basic_value_enum()),
                     ir::UnaryOperationKind::Not => Ok(self
                         .builder
@@ -170,23 +170,23 @@ impl<'ctx> Codegen<'ctx> {
                 let lhs = self.compile_expression(&binop.lhs, bindings)?;
                 let rhs = self.compile_expression(&binop.rhs, bindings)?;
                 match binop.kind {
-                    ir::BinaryOperationKind::Add => Ok(self
+                    ir::BinaryOperationKind::AddInt => Ok(self
                         .builder
                         .build_int_add(lhs.into_int_value(), rhs.into_int_value(), "add")?
                         .as_basic_value_enum()),
-                    ir::BinaryOperationKind::Sub => Ok(self
+                    ir::BinaryOperationKind::SubInt => Ok(self
                         .builder
                         .build_int_sub(lhs.into_int_value(), rhs.into_int_value(), "sub")?
                         .as_basic_value_enum()),
-                    ir::BinaryOperationKind::Mul => Ok(self
+                    ir::BinaryOperationKind::MulInt => Ok(self
                         .builder
                         .build_int_mul(lhs.into_int_value(), rhs.into_int_value(), "mul")?
                         .as_basic_value_enum()),
-                    ir::BinaryOperationKind::Div => Ok(self
+                    ir::BinaryOperationKind::DivInt => Ok(self
                         .builder
                         .build_int_signed_div(lhs.into_int_value(), rhs.into_int_value(), "div")?
                         .as_basic_value_enum()),
-                    ir::BinaryOperationKind::Equals => Ok(self
+                    ir::BinaryOperationKind::EqualsInt => Ok(self
                         .builder
                         .build_int_compare(
                             inkwell::IntPredicate::EQ,
@@ -195,7 +195,7 @@ impl<'ctx> Codegen<'ctx> {
                             "equ",
                         )?
                         .as_basic_value_enum()),
-                    ir::BinaryOperationKind::Less => Ok(self
+                    ir::BinaryOperationKind::LessInt => Ok(self
                         .builder
                         .build_int_compare(
                             inkwell::IntPredicate::SLT,
@@ -204,7 +204,7 @@ impl<'ctx> Codegen<'ctx> {
                             "lt",
                         )?
                         .as_basic_value_enum()),
-                    ir::BinaryOperationKind::LessEq => Ok(self
+                    ir::BinaryOperationKind::LessEqInt => Ok(self
                         .builder
                         .build_int_compare(
                             inkwell::IntPredicate::SLE,
@@ -213,7 +213,7 @@ impl<'ctx> Codegen<'ctx> {
                             "le",
                         )?
                         .as_basic_value_enum()),
-                    ir::BinaryOperationKind::Greater => Ok(self
+                    ir::BinaryOperationKind::GreaterInt => Ok(self
                         .builder
                         .build_int_compare(
                             inkwell::IntPredicate::SGT,
@@ -222,13 +222,74 @@ impl<'ctx> Codegen<'ctx> {
                             "gt",
                         )?
                         .as_basic_value_enum()),
-                    ir::BinaryOperationKind::GreaterEq => Ok(self
+                    ir::BinaryOperationKind::GreaterEqInt => Ok(self
                         .builder
                         .build_int_compare(
                             inkwell::IntPredicate::SGE,
                             lhs.into_int_value(),
                             rhs.into_int_value(),
                             "ge",
+                        )?
+                        .as_basic_value_enum()),
+                    ir::BinaryOperationKind::AddFloat => Ok(self
+                        .builder
+                        .build_float_add(lhs.into_float_value(), rhs.into_float_value(), "fadd")?
+                        .as_basic_value_enum()),
+                    ir::BinaryOperationKind::SubFloat => Ok(self
+                        .builder
+                        .build_float_sub(lhs.into_float_value(), rhs.into_float_value(), "fsub")?
+                        .as_basic_value_enum()),
+                    ir::BinaryOperationKind::MulFloat => Ok(self
+                        .builder
+                        .build_float_mul(lhs.into_float_value(), rhs.into_float_value(), "fmul")?
+                        .as_basic_value_enum()),
+                    ir::BinaryOperationKind::DivFloat => Ok(self
+                        .builder
+                        .build_float_div(lhs.into_float_value(), rhs.into_float_value(), "fdiv")?
+                        .as_basic_value_enum()),
+                    ir::BinaryOperationKind::EqualsFloat => Ok(self
+                        .builder
+                        .build_float_compare(
+                            inkwell::FloatPredicate::OEQ,
+                            lhs.into_float_value(),
+                            rhs.into_float_value(),
+                            "fequ",
+                        )?
+                        .as_basic_value_enum()),
+                    ir::BinaryOperationKind::LessFloat => Ok(self
+                        .builder
+                        .build_float_compare(
+                            inkwell::FloatPredicate::OLT,
+                            lhs.into_float_value(),
+                            rhs.into_float_value(),
+                            "flt",
+                        )?
+                        .as_basic_value_enum()),
+                    ir::BinaryOperationKind::LessEqFloat => Ok(self
+                        .builder
+                        .build_float_compare(
+                            inkwell::FloatPredicate::OLE,
+                            lhs.into_float_value(),
+                            rhs.into_float_value(),
+                            "fle",
+                        )?
+                        .as_basic_value_enum()),
+                    ir::BinaryOperationKind::GreaterFloat => Ok(self
+                        .builder
+                        .build_float_compare(
+                            inkwell::FloatPredicate::OGT,
+                            lhs.into_float_value(),
+                            rhs.into_float_value(),
+                            "fgt",
+                        )?
+                        .as_basic_value_enum()),
+                    ir::BinaryOperationKind::GreaterEqFloat => Ok(self
+                        .builder
+                        .build_float_compare(
+                            inkwell::FloatPredicate::OGE,
+                            lhs.into_float_value(),
+                            rhs.into_float_value(),
+                            "fge",
                         )?
                         .as_basic_value_enum()),
                     ir::BinaryOperationKind::And => Ok(self
@@ -269,9 +330,14 @@ impl<'ctx> Codegen<'ctx> {
                 let updated_else_bb = self.builder.get_insert_block().unwrap();
 
                 self.builder.position_at_end(cont_bb);
-                let phi = self
-                    .builder
-                    .build_phi(self.context.i32_type(), "cond-phi")?;
+
+                let phi_type = if c.float_mode {
+                    self.context.f32_type().as_basic_type_enum()
+                } else {
+                    self.context.i32_type().as_basic_type_enum()
+                };
+
+                let phi = self.builder.build_phi(phi_type, "cond-phi")?;
                 phi.add_incoming(&[
                     (&then_value, updated_then_bb),
                     (&else_value, updated_else_bb),

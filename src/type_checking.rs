@@ -22,6 +22,16 @@ pub enum TypeCheckError {
         span: Span,
     },
 
+    #[error("Expected an expression of type `{expected1}` or `{expected2}` but got `{actual}`")]
+    UnexpectedTypeOfTwo {
+        expected1: Type,
+        expected2: Type,
+        actual: Type,
+
+        #[label("expression with unexpected type")]
+        span: Span,
+    },
+
     #[error("The name `{name}` is not bound")]
     NotBound {
         name: ast::Ident,
@@ -185,8 +195,8 @@ impl TypeChecker {
                 let arg = self.infer_expr(*inner, vars)?;
                 let typ = match op {
                     ast::UnaryOperation::Neg => {
-                        expect_type(Type::Int, arg.type_context, arg.span)?;
-                        Type::Int
+                        expect_type_of_two(Type::Int, Type::Float, arg.type_context, arg.span)?;
+                        arg.type_context
                     }
                     ast::UnaryOperation::Not => {
                         expect_type(Type::Bool, arg.type_context, arg.span)?;
@@ -212,17 +222,35 @@ impl TypeChecker {
                     | ast::BinaryOperation::Sub
                     | ast::BinaryOperation::Mul
                     | ast::BinaryOperation::Div => {
-                        expect_type(Type::Int, typed_lhs.type_context, typed_lhs.span)?;
-                        expect_type(Type::Int, typed_rhs.type_context, typed_rhs.span)?;
-                        Type::Int
+                        expect_type_of_two(
+                            Type::Int,
+                            Type::Float,
+                            typed_lhs.type_context,
+                            typed_lhs.span,
+                        )?;
+                        expect_type(
+                            typed_lhs.type_context,
+                            typed_rhs.type_context,
+                            typed_rhs.span,
+                        )?;
+                        typed_lhs.type_context
                     }
                     ast::BinaryOperation::Equals
                     | ast::BinaryOperation::Less
                     | ast::BinaryOperation::LessEq
                     | ast::BinaryOperation::Greater
                     | ast::BinaryOperation::GreaterEq => {
-                        expect_type(Type::Int, typed_lhs.type_context, typed_lhs.span)?;
-                        expect_type(Type::Int, typed_rhs.type_context, typed_rhs.span)?;
+                        expect_type_of_two(
+                            Type::Int,
+                            Type::Float,
+                            typed_lhs.type_context,
+                            typed_lhs.span,
+                        )?;
+                        expect_type(
+                            typed_lhs.type_context,
+                            typed_rhs.type_context,
+                            typed_rhs.span,
+                        )?;
                         Type::Bool
                     }
                     ast::BinaryOperation::And | ast::BinaryOperation::Or => {
@@ -364,6 +392,20 @@ fn expect_type(expected: Type, actual: Type, span: Span) -> Result<()> {
     } else {
         Err(TypeCheckError::UnexpectedType {
             expected,
+            actual,
+            span,
+        })
+    }
+}
+
+/// Assert that a type is one of a number of others
+fn expect_type_of_two(expected1: Type, expected2: Type, actual: Type, span: Span) -> Result<()> {
+    if actual == expected1 || actual == expected2 {
+        Ok(())
+    } else {
+        Err(TypeCheckError::UnexpectedTypeOfTwo {
+            expected1,
+            expected2,
             actual,
             span,
         })

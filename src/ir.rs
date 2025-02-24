@@ -70,15 +70,24 @@ pub struct BinaryOperation {
 
 #[derive(Debug, Clone, Copy)]
 pub enum BinaryOperationKind {
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Equals,
-    Less,
-    LessEq,
-    Greater,
-    GreaterEq,
+    AddInt,
+    SubInt,
+    MulInt,
+    DivInt,
+    EqualsInt,
+    LessInt,
+    LessEqInt,
+    GreaterInt,
+    GreaterEqInt,
+    AddFloat,
+    SubFloat,
+    MulFloat,
+    DivFloat,
+    EqualsFloat,
+    LessFloat,
+    LessEqFloat,
+    GreaterFloat,
+    GreaterEqFloat,
     And,
     Or,
 }
@@ -91,7 +100,8 @@ pub struct UnaryOperation {
 
 #[derive(Debug, Clone, Copy)]
 pub enum UnaryOperationKind {
-    Neg,
+    NegInt,
+    NegFloat,
     Not,
 }
 
@@ -100,6 +110,7 @@ pub struct Conditional {
     pub condition: Expression,
     pub yes: Expression,
     pub no: Expression,
+    pub float_mode: bool,
 }
 
 /* PRETTY PRINTING */
@@ -144,15 +155,24 @@ impl fmt::Display for FunctionPrototype {
 impl fmt::Display for BinaryOperationKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            BinaryOperationKind::Add => write!(f, "ADD"),
-            BinaryOperationKind::Sub => write!(f, "SUB"),
-            BinaryOperationKind::Mul => write!(f, "MUL"),
-            BinaryOperationKind::Div => write!(f, "DIV"),
-            BinaryOperationKind::Equals => write!(f, "EQUALS"),
-            BinaryOperationKind::Less => write!(f, "LESS"),
-            BinaryOperationKind::LessEq => write!(f, "LESSEQ"),
-            BinaryOperationKind::Greater => write!(f, "GREATER"),
-            BinaryOperationKind::GreaterEq => write!(f, "GREATEREQ"),
+            BinaryOperationKind::AddInt => write!(f, "ADD"),
+            BinaryOperationKind::SubInt => write!(f, "SUB"),
+            BinaryOperationKind::MulInt => write!(f, "MUL"),
+            BinaryOperationKind::DivInt => write!(f, "DIV"),
+            BinaryOperationKind::EqualsInt => write!(f, "EQUALS"),
+            BinaryOperationKind::LessInt => write!(f, "LESS"),
+            BinaryOperationKind::LessEqInt => write!(f, "LESSEQ"),
+            BinaryOperationKind::GreaterInt => write!(f, "GREATER"),
+            BinaryOperationKind::GreaterEqInt => write!(f, "GREATEREQ"),
+            BinaryOperationKind::AddFloat => write!(f, "FADD"),
+            BinaryOperationKind::SubFloat => write!(f, "FSUB"),
+            BinaryOperationKind::MulFloat => write!(f, "FMUL"),
+            BinaryOperationKind::DivFloat => write!(f, "FDIV"),
+            BinaryOperationKind::EqualsFloat => write!(f, "FEQUALS"),
+            BinaryOperationKind::LessFloat => write!(f, "FLESS"),
+            BinaryOperationKind::LessEqFloat => write!(f, "FLESSEQ"),
+            BinaryOperationKind::GreaterFloat => write!(f, "FGREATER"),
+            BinaryOperationKind::GreaterEqFloat => write!(f, "FGREATEREQ"),
             BinaryOperationKind::And => write!(f, "AND"),
             BinaryOperationKind::Or => write!(f, "OR"),
         }
@@ -162,7 +182,8 @@ impl fmt::Display for BinaryOperationKind {
 impl fmt::Display for UnaryOperationKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            UnaryOperationKind::Neg => write!(f, "NEG"),
+            UnaryOperationKind::NegInt => write!(f, "NEG"),
+            UnaryOperationKind::NegFloat => write!(f, "FNEG"),
             UnaryOperationKind::Not => write!(f, "NOT"),
         }
     }

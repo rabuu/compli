@@ -6,7 +6,11 @@ use crate::ir::FunctionPrototype;
 use crate::{Type, Variable};
 
 pub fn all_builtins() -> [FunctionPrototype; 3] {
-    [compli_trace_int(), compli_trace_float(), compli_trace_bool()]
+    [
+        compli_trace_int(),
+        compli_trace_float(),
+        compli_trace_bool(),
+    ]
 }
 
 pub fn compli_trace_int() -> FunctionPrototype {

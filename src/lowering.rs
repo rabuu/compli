@@ -133,32 +133,56 @@ impl Lowerer {
                     span: expr.span,
                 }),
             ExpressionKind::Unary { op, inner } => {
+                let float_mode = inner.type_context == Type::Float;
+
                 let arg = self.lower_expression(*inner, vars)?;
                 Ok(ir::Expression::UnaryOperation(Box::new(
                     ir::UnaryOperation {
                         kind: match op {
-                            UnaryOperation::Neg => ir::UnaryOperationKind::Neg,
+                            UnaryOperation::Neg if float_mode => ir::UnaryOperationKind::NegFloat,
+                            UnaryOperation::Neg => ir::UnaryOperationKind::NegInt,
                             UnaryOperation::Not => ir::UnaryOperationKind::Not,
                         },
                         inner: arg,
-                    }
+                    },
                 )))
             }
             ExpressionKind::Binary { op: kind, lhs, rhs } => {
+                let float_mode = lhs.type_context == Type::Float;
+
                 let lhs = self.lower_expression(*lhs, vars)?;
                 let rhs = self.lower_expression(*rhs, vars)?;
                 Ok(ir::Expression::BinaryOperation(Box::new(
                     ir::BinaryOperation {
                         kind: match kind {
-                            BinaryOperation::Add => ir::BinaryOperationKind::Add,
-                            BinaryOperation::Sub => ir::BinaryOperationKind::Sub,
-                            BinaryOperation::Mul => ir::BinaryOperationKind::Mul,
-                            BinaryOperation::Div => ir::BinaryOperationKind::Div,
-                            BinaryOperation::Equals => ir::BinaryOperationKind::Equals,
-                            BinaryOperation::Less => ir::BinaryOperationKind::Less,
-                            BinaryOperation::LessEq => ir::BinaryOperationKind::LessEq,
-                            BinaryOperation::Greater => ir::BinaryOperationKind::Greater,
-                            BinaryOperation::GreaterEq => ir::BinaryOperationKind::GreaterEq,
+                            BinaryOperation::Add if float_mode => ir::BinaryOperationKind::AddFloat,
+                            BinaryOperation::Sub if float_mode => ir::BinaryOperationKind::SubFloat,
+                            BinaryOperation::Mul if float_mode => ir::BinaryOperationKind::MulFloat,
+                            BinaryOperation::Div if float_mode => ir::BinaryOperationKind::DivFloat,
+                            BinaryOperation::Equals if float_mode => {
+                                ir::BinaryOperationKind::EqualsFloat
+                            }
+                            BinaryOperation::Less if float_mode => {
+                                ir::BinaryOperationKind::LessFloat
+                            }
+                            BinaryOperation::LessEq if float_mode => {
+                                ir::BinaryOperationKind::LessEqFloat
+                            }
+                            BinaryOperation::Greater if float_mode => {
+                                ir::BinaryOperationKind::GreaterFloat
+                            }
+                            BinaryOperation::GreaterEq if float_mode => {
+                                ir::BinaryOperationKind::GreaterEqFloat
+                            }
+                            BinaryOperation::Add => ir::BinaryOperationKind::AddInt,
+                            BinaryOperation::Sub => ir::BinaryOperationKind::SubInt,
+                            BinaryOperation::Mul => ir::BinaryOperationKind::MulInt,
+                            BinaryOperation::Div => ir::BinaryOperationKind::DivInt,
+                            BinaryOperation::Equals => ir::BinaryOperationKind::EqualsInt,
+                            BinaryOperation::Less => ir::BinaryOperationKind::LessInt,
+                            BinaryOperation::LessEq => ir::BinaryOperationKind::LessEqInt,
+                            BinaryOperation::Greater => ir::BinaryOperationKind::GreaterInt,
+                            BinaryOperation::GreaterEq => ir::BinaryOperationKind::GreaterEqInt,
                             BinaryOperation::And => ir::BinaryOperationKind::And,
                             BinaryOperation::Or => ir::BinaryOperationKind::Or,
                         },
@@ -206,10 +230,13 @@ impl Lowerer {
                 }
             }
             ExpressionKind::IfThenElse { condition, yes, no } => {
+                let float_mode = yes.type_context == Type::Float;
+
                 Ok(ir::Expression::Conditional(Box::new(ir::Conditional {
                     condition: self.lower_expression(*condition, vars)?,
                     yes: self.lower_expression(*yes, vars)?,
                     no: self.lower_expression(*no, vars)?,
+                    float_mode,
                 })))
             }
             ExpressionKind::Call { function, args } => {
