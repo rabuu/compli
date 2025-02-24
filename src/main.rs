@@ -212,9 +212,9 @@ fn main() -> Result<()> {
 
     /* WRITE OUTPUT FILE */
 
-    // warn if existing output file gets overridden
+    // warn if existing output file gets overwritten
     if output_file.exists() {
-        warn!("{:?} already exists and will be overridden", &output_file);
+        warn!("{:?} already exists and will be overwritten", &output_file);
     }
 
     // actually write output file
