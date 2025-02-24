@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use miette::Diagnostic;
 use thiserror::Error;
@@ -21,6 +21,22 @@ pub enum TypeCheckError {
         name: ast::Ident,
 
         #[label("unknown name")]
+        span: Span,
+    },
+
+    #[error("The name `{name}` can not be user-defined")]
+    IllegalFunctionName {
+        name: ast::Ident,
+
+        #[label("function with illegal name")]
+        span: Span,
+    },
+
+    #[error("There are multiple function definitions with the name `{name}`")]
+    MultipleFunctionDefinitions {
+        name: ast::Ident,
+
+        #[label("second definition")]
         span: Span,
     },
 
@@ -51,7 +67,7 @@ pub fn type_check(program: ast::UntypedProgram) -> Result<ast::TypedProgram> {
         })
         .collect();
 
-    let checker = TypeChecker { prototypes };
+    let mut checker = TypeChecker::new(prototypes);
 
     let mut typed_functions = Vec::with_capacity(program.functions.len());
     for function in program.functions {
@@ -65,13 +81,35 @@ pub fn type_check(program: ast::UntypedProgram) -> Result<ast::TypedProgram> {
 
 struct TypeChecker {
     prototypes: HashMap<ast::Ident, (Vec<Type>, Type)>,
+    already_defined: HashSet<ast::Ident>,
 }
 
 impl TypeChecker {
+    fn new(prototypes: HashMap<ast::Ident, (Vec<Type>, Type)>) -> Self {
+        Self {
+            prototypes,
+            already_defined: HashSet::new(),
+        }
+    }
+
     fn check_function(
-        &self,
+        &mut self,
         function: ast::Function<ast::NoContext>,
     ) -> Result<ast::Function<Type>> {
+        if function.name.starts_with("__compli") {
+            return Err(TypeCheckError::IllegalFunctionName {
+                name: function.name,
+                span: function.span,
+            });
+        }
+
+        if !self.already_defined.insert(function.name.clone()) {
+            return Err(TypeCheckError::MultipleFunctionDefinitions {
+                name: function.name,
+                span: function.span,
+            });
+        }
+
         let vars = function.params.iter().cloned().collect();
         let typed_body = self.infer_expr(function.body, &vars)?;
         expect_type(function.return_type, typed_body.type_context, function.span)?;
