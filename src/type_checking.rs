@@ -210,7 +210,11 @@ impl TypeChecker {
                         expect_type(Type::Int, typed_rhs.type_context, typed_rhs.span)?;
                         Type::Int
                     }
-                    ast::BinaryOperation::Equals | ast::BinaryOperation::Less => {
+                    ast::BinaryOperation::Equals
+                    | ast::BinaryOperation::Less
+                    | ast::BinaryOperation::LessEq
+                    | ast::BinaryOperation::Greater
+                    | ast::BinaryOperation::GreaterEq => {
                         expect_type(Type::Int, typed_lhs.type_context, typed_lhs.span)?;
                         expect_type(Type::Int, typed_rhs.type_context, typed_rhs.span)?;
                         Type::Bool

@@ -183,6 +183,24 @@ impl<'ctx> Codegen<'ctx> {
                         rhs,
                         "lt",
                     )?),
+                    ir::BinaryOperationKind::LessEq => Ok(self.builder.build_int_compare(
+                        inkwell::IntPredicate::SLE,
+                        lhs,
+                        rhs,
+                        "le",
+                    )?),
+                    ir::BinaryOperationKind::Greater => Ok(self.builder.build_int_compare(
+                        inkwell::IntPredicate::SGT,
+                        lhs,
+                        rhs,
+                        "gt",
+                    )?),
+                    ir::BinaryOperationKind::GreaterEq => Ok(self.builder.build_int_compare(
+                        inkwell::IntPredicate::SGE,
+                        lhs,
+                        rhs,
+                        "ge",
+                    )?),
                     ir::BinaryOperationKind::And => Ok(self.builder.build_and(lhs, rhs, "and")?),
                     ir::BinaryOperationKind::Or => Ok(self.builder.build_or(lhs, rhs, "or")?),
                 }

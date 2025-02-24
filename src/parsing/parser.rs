@@ -105,11 +105,15 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
         let comparison = sum_or_diff
             .clone()
             .then(
-                just(Token::Equals)
-                    .to(ast::BinaryOperation::Equals)
-                    .or(just(Token::Less).to(ast::BinaryOperation::Less))
-                    .then(sum_or_diff)
-                    .repeated(),
+                choice((
+                    just(Token::Equals).to(ast::BinaryOperation::Equals),
+                    just(Token::Less).to(ast::BinaryOperation::Less),
+                    just(Token::LessEq).to(ast::BinaryOperation::LessEq),
+                    just(Token::Greater).to(ast::BinaryOperation::Greater),
+                    just(Token::GreaterEq).to(ast::BinaryOperation::GreaterEq),
+                ))
+                .then(sum_or_diff)
+                .repeated(),
             )
             .foldl(|lhs, (kind, rhs)| {
                 let span = Span::new(lhs.span.start, rhs.span.end);

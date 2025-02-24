@@ -121,6 +121,9 @@ pub enum BinaryOperation {
     Div,
     Equals,
     Less,
+    LessEq,
+    Greater,
+    GreaterEq,
     And,
     Or,
 }
@@ -174,6 +177,9 @@ impl fmt::Display for BinaryOperation {
             BinaryOperation::Div => write!(f, "/"),
             BinaryOperation::Equals => write!(f, "=="),
             BinaryOperation::Less => write!(f, "<"),
+            BinaryOperation::LessEq => write!(f, "<="),
+            BinaryOperation::Greater => write!(f, ">"),
+            BinaryOperation::GreaterEq => write!(f, ">="),
             BinaryOperation::And => write!(f, "&&"),
             BinaryOperation::Or => write!(f, "||"),
         }

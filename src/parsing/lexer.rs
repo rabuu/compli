@@ -31,6 +31,9 @@ pub enum Token {
     Assign,
     Equals,
     Less,
+    LessEq,
+    Greater,
+    GreaterEq,
     Plus,
     Minus,
     Asterisk,
@@ -52,13 +55,16 @@ pub fn lex() -> impl Parser<char, Vec<(Token, Span)>, Error = ParseErr<char>> {
 
     let symbol = choice((
         just("==").to(Token::Equals),
+        just("<=").to(Token::LessEq),
+        just(">=").to(Token::GreaterEq),
         just("&&").to(Token::And),
         just("||").to(Token::Or),
-        one_of("()=<+-*/,:!").map(|symb: char| match symb {
+        one_of("()=<>+-*/,:!").map(|symb: char| match symb {
             '(' => Token::ParenOpen,
             ')' => Token::ParenClose,
             '=' => Token::Assign,
             '<' => Token::Less,
+            '>' => Token::Greater,
             '+' => Token::Plus,
             '-' => Token::Minus,
             '*' => Token::Asterisk,
@@ -108,6 +114,9 @@ impl fmt::Display for Token {
             Token::Assign => write!(f, "="),
             Token::Equals => write!(f, "=="),
             Token::Less => write!(f, "<"),
+            Token::LessEq => write!(f, "<="),
+            Token::Greater => write!(f, ">"),
+            Token::GreaterEq => write!(f, ">="),
             Token::Plus => write!(f, "+"),
             Token::Minus => write!(f, "-"),
             Token::Asterisk => write!(f, "*"),

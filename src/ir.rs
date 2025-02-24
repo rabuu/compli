@@ -75,6 +75,9 @@ pub enum BinaryOperationKind {
     Div,
     Equals,
     Less,
+    LessEq,
+    Greater,
+    GreaterEq,
     And,
     Or,
 }
@@ -146,6 +149,9 @@ impl fmt::Display for BinaryOperationKind {
             BinaryOperationKind::Div => write!(f, "DIV"),
             BinaryOperationKind::Equals => write!(f, "EQUALS"),
             BinaryOperationKind::Less => write!(f, "LESS"),
+            BinaryOperationKind::LessEq => write!(f, "LESSEQ"),
+            BinaryOperationKind::Greater => write!(f, "GREATER"),
+            BinaryOperationKind::GreaterEq => write!(f, "GREATEREQ"),
             BinaryOperationKind::And => write!(f, "AND"),
             BinaryOperationKind::Or => write!(f, "OR"),
         }
