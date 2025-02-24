@@ -1,3 +1,7 @@
+//! Utilities
+//!
+//! Small types used throughout the crate.
+
 mod span;
 mod variable;
 

@@ -1,9 +1,12 @@
+/// A cheap type to refer to variables unambiguously
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Variable(usize);
 
 impl Variable {
+    /// Random variable you can use where it doesn't matter
     pub const DONT_CARE: Variable = Variable(usize::MAX);
 
+    /// Advance internal counter to next variable
     pub fn advance(&mut self) {
         self.0 += 1;
     }
