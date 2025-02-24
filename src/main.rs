@@ -224,7 +224,7 @@ fn main() -> Result<()> {
             file_path: output_file.clone(),
             context: None,
         })?;
-    info!("Wrote object file to {output_file:?} successfully");
+    info!("Creation of object file {output_file:?} was successful");
 
     Ok(())
 }
