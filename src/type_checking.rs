@@ -12,7 +12,7 @@ pub enum TypeCheckError {
         expected: Type,
         actual: Type,
 
-        #[label("this expression")]
+        #[label("expression with unexpected type")]
         span: Span,
     },
 
@@ -28,7 +28,7 @@ pub enum TypeCheckError {
     IllegalFunctionName {
         name: ast::Ident,
 
-        #[label("function with illegal name")]
+        #[label("illegal name")]
         span: Span,
     },
 
@@ -99,27 +99,28 @@ impl TypeChecker {
         if function.name.starts_with("__compli") {
             return Err(TypeCheckError::IllegalFunctionName {
                 name: function.name,
-                span: function.span,
+                span: function.name_span,
             });
         }
 
         if !self.already_defined.insert(function.name.clone()) {
             return Err(TypeCheckError::MultipleFunctionDefinitions {
                 name: function.name,
-                span: function.span,
+                span: function.name_span,
             });
         }
 
         let vars = function.params.iter().cloned().collect();
         let typed_body = self.infer_expr(function.body, &vars)?;
-        expect_type(function.return_type, typed_body.type_context, function.span)?;
+        expect_type(function.return_type, typed_body.type_context, typed_body.span)?;
 
         Ok(ast::Function {
             name: function.name,
             params: function.params,
             return_type: function.return_type,
             body: typed_body,
-            span: function.span,
+            full_span: function.full_span,
+            name_span: function.name_span,
         })
     }
 

@@ -75,14 +75,14 @@ impl Lowerer {
                 if !function.prototype.parameters.is_empty() {
                     return Err(LoweringError::MalformedEntryFunction {
                         context: String::from("The main function does not take any arguments"),
-                        span: func.span,
+                        span: func.name_span,
                     });
                 }
 
                 if function.prototype.return_type != Type::Int {
                     return Err(LoweringError::MalformedEntryFunction {
                         context: String::from("The main function does always return the type int"),
-                        span: func.span,
+                        span: func.name_span,
                     });
                 }
 

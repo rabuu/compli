@@ -22,7 +22,8 @@ where
     pub params: Vec<(Ident, Type)>,
     pub return_type: Type,
     pub body: Expression<C>,
-    pub span: Span,
+    pub full_span: Span,
+    pub name_span: Span,
 }
 
 #[derive(Debug, Clone)]
