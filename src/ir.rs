@@ -35,7 +35,8 @@ pub struct FunctionPrototype {
 
 #[derive(Debug, Clone)]
 pub enum Value {
-    Number(i32),
+    Integer(i32),
+    Float(f32),
     Boolean(bool),
     Variable(Variable),
 }
@@ -185,7 +186,8 @@ impl TreeItem for Expression {
     fn write_self<W: io::Write>(&self, f: &mut W, style: &ptree::Style) -> io::Result<()> {
         match self {
             Expression::Direct(value) => match value {
-                Value::Number(n) => write!(f, "{}", style.paint(n)),
+                Value::Integer(n) => write!(f, "{}", style.paint(n)),
+                Value::Float(x) => write!(f, "{}", style.paint(x)),
                 Value::Boolean(b) => write!(f, "{}", style.paint(b)),
                 Value::Variable(v) => write!(f, "{}", style.paint(v)),
             },

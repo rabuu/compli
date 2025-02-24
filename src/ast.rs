@@ -74,6 +74,7 @@ where
     C: fmt::Display + Clone,
 {
     Int(u16),
+    Float(f32),
     Bool(bool),
     Var(Ident),
 
@@ -225,6 +226,9 @@ where
             ExpressionKind::Int(i) => {
                 write!(f, "{}", style.paint(format!("{i} {}", self.type_context)))
             }
+            ExpressionKind::Float(x) => {
+                write!(f, "{}", style.paint(format!("{x} {}", self.type_context)))
+            }
             ExpressionKind::Bool(b) => {
                 write!(f, "{}", style.paint(format!("{b} {}", self.type_context)))
             }
@@ -272,9 +276,10 @@ where
 
     fn children(&self) -> Cow<[Self::Child]> {
         match &self.kind {
-            ExpressionKind::Int(_) | ExpressionKind::Bool(_) | ExpressionKind::Var(_) => {
-                Cow::from(vec![])
-            }
+            ExpressionKind::Int(_)
+            | ExpressionKind::Float(_)
+            | ExpressionKind::Bool(_)
+            | ExpressionKind::Var(_) => Cow::from(vec![]),
             ExpressionKind::Unary { inner, .. } => Cow::from(vec![*inner.clone()]),
             ExpressionKind::Binary { lhs, rhs, .. } => Cow::from(vec![*lhs.clone(), *rhs.clone()]),
             ExpressionKind::LetIn { binds, body, .. } => {

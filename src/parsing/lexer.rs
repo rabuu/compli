@@ -13,13 +13,15 @@ use super::ParseErr;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Token {
-    Int(u16),
+    Int(String),
     Bool(bool),
+    Float(String),
 
     Ident(String),
 
     KwBool,
     KwInt,
+    KwFloat,
 
     KwFunc,
     KwIf,
@@ -51,7 +53,12 @@ pub enum Token {
 
 /// Tokenize source code
 pub fn lex() -> impl Parser<char, Vec<(Token, Span)>, Error = ParseErr<char>> {
-    let integer = text::int(10).from_str().unwrapped().map(Token::Int);
+    let integer = text::int(10).map(Token::Int);
+
+    let float = text::int(10)
+        .chain::<char, _, _>(just('.').chain(text::digits(10)))
+        .collect::<String>()
+        .map(Token::Float);
 
     let symbol = choice((
         just("==").to(Token::Equals),
@@ -79,6 +86,7 @@ pub fn lex() -> impl Parser<char, Vec<(Token, Span)>, Error = ParseErr<char>> {
     let kw_or_ident = text::ident().map(|ident: String| match ident.as_str() {
         "bool" => Token::KwBool,
         "int" => Token::KwInt,
+        "float" => Token::KwFloat,
         "func" => Token::KwFunc,
         "if" => Token::KwIf,
         "then" => Token::KwThen,
@@ -90,7 +98,7 @@ pub fn lex() -> impl Parser<char, Vec<(Token, Span)>, Error = ParseErr<char>> {
         _ => Token::Ident(ident),
     });
 
-    let token = integer.or(symbol).or(kw_or_ident);
+    let token = float.or(integer).or(symbol).or(kw_or_ident);
 
     let comment = just("//").then(take_until(just('\n'))).padded();
 
@@ -109,6 +117,8 @@ impl fmt::Display for Token {
             Token::Bool(b) => write!(f, "{}", b),
             Token::KwInt => write!(f, "int"),
             Token::Int(i) => write!(f, "{}", i),
+            Token::KwFloat => write!(f, "float"),
+            Token::Float(x) => write!(f, "{}", x),
             Token::Ident(id) => write!(f, "{}", id),
             Token::KwFunc => write!(f, "func"),
             Token::Assign => write!(f, "="),

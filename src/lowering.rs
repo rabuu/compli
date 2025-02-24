@@ -121,7 +121,8 @@ impl Lowerer {
         vars: &HashMap<Ident, Variable>,
     ) -> Result<ir::Expression> {
         match expr.kind {
-            ExpressionKind::Int(i) => Ok(ir::Expression::Direct(ir::Value::Number(i as i32))),
+            ExpressionKind::Int(i) => Ok(ir::Expression::Direct(ir::Value::Integer(i as i32))),
+            ExpressionKind::Float(f) => Ok(ir::Expression::Direct(ir::Value::Float(f))),
             ExpressionKind::Bool(b) => Ok(ir::Expression::Direct(ir::Value::Boolean(b))),
             ExpressionKind::Var(v) => vars
                 .get(&v)
@@ -216,6 +217,7 @@ impl Lowerer {
                 if function.as_str() == "trace" {
                     let function_name = match args[0].type_context {
                         Type::Int => "__compli_trace_int",
+                        Type::Float => "__compli_trace_float",
                         Type::Bool => "__compli_trace_bool",
                     }
                     .to_string();

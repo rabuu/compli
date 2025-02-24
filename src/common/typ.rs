@@ -2,6 +2,7 @@
 pub enum Type {
     Int,
     Bool,
+    Float,
 }
 
 impl std::fmt::Display for Type {
@@ -9,6 +10,7 @@ impl std::fmt::Display for Type {
         match self {
             Type::Int => write!(f, "int"),
             Type::Bool => write!(f, "bool"),
+            Type::Float => write!(f, "float"),
         }
     }
 }

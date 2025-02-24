@@ -153,6 +153,12 @@ impl TypeChecker {
                 type_context: Type::Int,
             }),
 
+            ast::ExpressionKind::Float(x) => Ok(ast::Expression {
+                kind: ast::ExpressionKind::Float(x),
+                span: expr.span,
+                type_context: Type::Float,
+            }),
+
             ast::ExpressionKind::Bool(x) => Ok(ast::Expression {
                 kind: ast::ExpressionKind::Bool(x),
                 span: expr.span,

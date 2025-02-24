@@ -3,7 +3,7 @@ if exists("b:current_syntax")
 end
 
 syn keyword compliKeyword func let in
-syn keyword compliDataType int bool
+syn keyword compliDataType int bool float
 syn keyword compliConditional if then else
 syn keyword compliBoolean true false
 syn keyword compliOperator trace

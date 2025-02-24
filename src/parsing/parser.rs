@@ -17,12 +17,14 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
     let typ = choice((
         just(Token::KwInt).to(Type::Int),
         just(Token::KwBool).to(Type::Bool),
+        just(Token::KwFloat).to(Type::Float),
     ));
 
     let expr = recursive(|expr| {
         let val = select! {
-            Token::Int(x) => ast::ExpressionKind::Int(x),
+            Token::Int(x) => ast::ExpressionKind::Int(x.parse().unwrap()),
             Token::Bool(x) => ast::ExpressionKind::Bool(x),
+            Token::Float(x) => ast::ExpressionKind::Float(x.parse().unwrap()),
         }
         .labelled("value");
 

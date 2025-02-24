@@ -1,5 +1,5 @@
 (defun compli-types ()
-  '("int" "bool"))
+  '("int" "bool" "float"))
 
 (defun compli-keywords ()
   '("func" "let" "in" "if" "then" "else" "true" "false"))
