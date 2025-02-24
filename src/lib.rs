@@ -1,4 +1,5 @@
 mod ast;
+mod builtin;
 mod codegen;
 mod ir;
 mod lowering;

@@ -96,7 +96,10 @@ impl TypeChecker {
         &mut self,
         function: ast::Function<ast::NoContext>,
     ) -> Result<ast::Function<Type>> {
-        if function.name.starts_with("__compli") {
+        let name = function.name.as_str();
+
+        const ILLEGAL_NAMES: [&str; 1] = ["trace"];
+        if ILLEGAL_NAMES.contains(&name) || name.starts_with("__compli") {
             return Err(TypeCheckError::IllegalFunctionName {
                 name: function.name,
                 span: function.name_span,
@@ -271,6 +274,30 @@ impl TypeChecker {
             }
 
             ast::ExpressionKind::Call { function, args } => {
+                // builtin: trace function
+                if function.as_str() == "trace" {
+                    if args.len() != 1 {
+                        return Err(TypeCheckError::WrongNumberOfArguments {
+                            expected: 1,
+                            actual: args.len(),
+                            span: expr.span,
+                        });
+                    }
+
+                    let mut args = args;
+                    let typed_arg = self.infer_expr(args.swap_remove(0), vars)?;
+                    let typ = typed_arg.type_context;
+
+                    return Ok(ast::Expression {
+                        kind: ast::ExpressionKind::Call {
+                            function,
+                            args: vec![typed_arg],
+                        },
+                        span: expr.span,
+                        type_context: typ,
+                    });
+                }
+
                 let (params, ret) =
                     self.prototypes
                         .get(&function)

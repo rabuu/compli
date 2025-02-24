@@ -180,6 +180,23 @@ impl Lowerer {
                 })))
             }
             ExpressionKind::Call { function, args } => {
+                // builtin: trace function
+                if function.as_str() == "trace" {
+                    let function_name = match args[0].type_context {
+                        Type::Int => "__compli_trace_int",
+                        Type::Bool => "__compli_trace_bool",
+                    }
+                    .to_string();
+
+                    let mut args = args;
+                    let lowered_arg = self.lower_expression(args.swap_remove(0), vars)?;
+
+                    return Ok(E::FunctionCall {
+                        function_name,
+                        args: vec![lowered_arg],
+                    });
+                }
+
                 let mut lowered_args = Vec::with_capacity(args.len());
                 for arg in args {
                     lowered_args.push(self.lower_expression(arg, vars)?);

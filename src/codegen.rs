@@ -9,7 +9,7 @@ use inkwell::module::Module;
 use inkwell::types::{BasicMetadataTypeEnum, IntType};
 use inkwell::values::{AnyValue, FunctionValue, IntValue};
 
-use crate::{ir, Type, Variable};
+use crate::{builtin, ir, Type, Variable};
 
 #[derive(Debug, Error, Diagnostic)]
 pub enum CodegenError {
@@ -58,7 +58,9 @@ impl<'ctx> Codegen<'ctx> {
             function: entry_fn,
         };
 
-        for prototype in skeleton {
+        let builtins = [builtin::compli_trace_int(), builtin::compli_trace_bool()];
+
+        for prototype in skeleton.iter().chain(builtins.iter()) {
             codegen.compile_prototype(prototype)?;
         }
 
