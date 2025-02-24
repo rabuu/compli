@@ -51,10 +51,10 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
             .or_not()
             .then(atom)
             .map(|(op, inner)| {
-                if let Some(op) = op {
-                    let span = Span::new(op.1.start, inner.span.end);
+                if let Some((op, op_span)) = op {
+                    let span = Span::new(op_span.start, inner.span.end);
                     let e = ast::ExpressionKind::Unary {
-                        op: op.0,
+                        op,
                         inner: Box::new(inner),
                     };
                     ast::Expression::new(e, span, ast::NoContext)
