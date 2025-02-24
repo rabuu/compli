@@ -129,8 +129,19 @@ fn main() -> Result<()> {
     })?;
     info!("Reading of input file {:?} was successful", args.input_file);
 
+    // determine output file
+    let output_file = match args.output_file {
+        Some(file) => file,
+        None => {
+            let basename = args.input_file.file_stem().ok_or(AppError::BadInput {
+                file_path: args.input_file.clone(),
+                context: String::from("Cannot read file name properly"),
+            })?;
+            PathBuf::from(basename).with_extension("o")
+        }
+    };
+
     // validate output file
-    let output_file = args.output_file.unwrap_or(PathBuf::from("myModule.o"));
     if output_file.exists() && !output_file.is_file() {
         return Err(AppError::BadOutput {
             file_path: output_file.clone(),
