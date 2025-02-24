@@ -1,3 +1,8 @@
+//! Lowering
+//!
+//! This module is responsible for lowering the AST (with type checkers type information) down to
+//! our intermediate representation ([ir]). The main interface is the [lower] function.
+
 use std::collections::HashMap;
 
 use miette::Diagnostic;
@@ -31,11 +36,15 @@ pub enum LoweringError {
 
 type Result<T> = std::result::Result<T, LoweringError>;
 
+/// Turn the AST (with type information) into IR
 pub fn lower(program: TypedProgram) -> Result<ir::Program> {
     let mut lowerer = Lowerer::default();
     lowerer.lower_program(program)
 }
 
+/// The main state during lowering
+///
+/// This state keeps track of which variables can be used as fresh.
 #[derive(Debug, Default)]
 struct Lowerer {
     fresh_variable: Variable,
@@ -46,43 +55,24 @@ impl Lowerer {
         let mut functions = Vec::with_capacity(program.functions.len());
         let mut entry = None;
         for func in program.functions {
-            let param_vars: Vec<(Ident, Variable, Type)> = func
-                .params
-                .into_iter()
-                .map(|(arg, typ)| (arg, self.fresh_variable(), typ))
-                .collect();
+            let func_is_main = func.name.as_str() == "main";
+            let name_span = func.name_span;
 
-            let vars = param_vars
-                .clone()
-                .into_iter()
-                .map(|(name, var, _)| (name, var))
-                .collect();
+            let function = self.lower_function(func)?;
 
-            let prototype = ir::FunctionPrototype {
-                name: func.name.clone(),
-                parameters: param_vars
-                    .into_iter()
-                    .map(|(_, var, typ)| (var, typ))
-                    .collect(),
-                return_type: func.return_type,
-            };
-
-            let body = self.lower_expression(func.body, &vars)?;
-
-            let function = ir::FunctionDefinition { prototype, body };
-
-            if func.name.as_str() == "main" {
+            // check if entry/main function is valid
+            if func_is_main {
                 if !function.prototype.parameters.is_empty() {
                     return Err(LoweringError::MalformedEntryFunction {
                         context: String::from("The main function does not take any arguments"),
-                        span: func.name_span,
+                        span: name_span,
                     });
                 }
 
                 if function.prototype.return_type != Type::Int {
                     return Err(LoweringError::MalformedEntryFunction {
                         context: String::from("The main function does always return the type int"),
-                        span: func.name_span,
+                        span: name_span,
                     });
                 }
 
@@ -98,20 +88,45 @@ impl Lowerer {
         })
     }
 
+    fn lower_function(&mut self, func: Function<Type>) -> Result<ir::FunctionDefinition> {
+        let param_vars: Vec<(Ident, Variable, Type)> = func
+            .params
+            .into_iter()
+            .map(|(arg, typ)| (arg, self.fresh_variable(), typ))
+            .collect();
+
+        let vars = param_vars
+            .clone()
+            .into_iter()
+            .map(|(name, var, _)| (name, var))
+            .collect();
+
+        let prototype = ir::FunctionPrototype {
+            name: func.name.clone(),
+            parameters: param_vars
+                .into_iter()
+                .map(|(_, var, typ)| (var, typ))
+                .collect(),
+            return_type: func.return_type,
+        };
+
+        let body = self.lower_expression(func.body, &vars)?;
+
+        Ok(ir::FunctionDefinition { prototype, body })
+    }
+
     fn lower_expression(
         &mut self,
         expr: Expression<Type>,
         vars: &HashMap<Ident, Variable>,
     ) -> Result<ir::Expression> {
-        use ir::Expression as E;
-        use ir::Value;
         match expr.kind {
-            ExpressionKind::Int(i) => Ok(E::Direct(Value::Number(i as i32))),
-            ExpressionKind::Bool(b) => Ok(E::Direct(Value::Boolean(b))),
+            ExpressionKind::Int(i) => Ok(ir::Expression::Direct(ir::Value::Number(i as i32))),
+            ExpressionKind::Bool(b) => Ok(ir::Expression::Direct(ir::Value::Boolean(b))),
             ExpressionKind::Var(v) => vars
                 .get(&v)
                 .copied()
-                .map(|v| E::Direct(Value::Variable(v)))
+                .map(|v| ir::Expression::Direct(ir::Value::Variable(v)))
                 .ok_or(LoweringError::VariableNotBound {
                     variable: v,
                     span: expr.span,
@@ -122,7 +137,7 @@ impl Lowerer {
             ExpressionKind::Binary { op: kind, lhs, rhs } => {
                 let lhs = self.lower_expression(*lhs, vars)?;
                 let rhs = self.lower_expression(*rhs, vars)?;
-                Ok(E::BinaryOperation(Box::new(ir::BinaryOperation {
+                Ok(ir::Expression::BinaryOperation(Box::new(ir::BinaryOperation {
                     kind: match kind {
                         BinaryOperation::Add => ir::BinaryOperationKind::Add,
                         BinaryOperation::Sub => ir::BinaryOperationKind::Sub,
@@ -146,7 +161,7 @@ impl Lowerer {
 
                     let body = self.lower_expression(*body, &extended_vars)?;
 
-                    Ok(E::LocalBinding(Box::new(ir::LocalBinding {
+                    Ok(ir::Expression::LocalBinding(Box::new(ir::LocalBinding {
                         var: fresh,
                         bind,
                         body,
@@ -165,7 +180,7 @@ impl Lowerer {
                     };
                     let rest = self.lower_expression(rest, &extended_vars)?;
 
-                    Ok(E::LocalBinding(Box::new(ir::LocalBinding {
+                    Ok(ir::Expression::LocalBinding(Box::new(ir::LocalBinding {
                         var: fresh,
                         bind,
                         body: rest,
@@ -173,7 +188,7 @@ impl Lowerer {
                 }
             }
             ExpressionKind::IfThenElse { condition, yes, no } => {
-                Ok(E::Conditional(Box::new(ir::Conditional {
+                Ok(ir::Expression::Conditional(Box::new(ir::Conditional {
                     condition: self.lower_expression(*condition, vars)?,
                     yes: self.lower_expression(*yes, vars)?,
                     no: self.lower_expression(*no, vars)?,
@@ -191,7 +206,7 @@ impl Lowerer {
                     let mut args = args;
                     let lowered_arg = self.lower_expression(args.swap_remove(0), vars)?;
 
-                    return Ok(E::FunctionCall {
+                    return Ok(ir::Expression::FunctionCall {
                         function_name,
                         args: vec![lowered_arg],
                     });
@@ -202,7 +217,7 @@ impl Lowerer {
                     lowered_args.push(self.lower_expression(arg, vars)?);
                 }
 
-                Ok(E::FunctionCall {
+                Ok(ir::Expression::FunctionCall {
                     function_name: function,
                     args: lowered_args,
                 })
