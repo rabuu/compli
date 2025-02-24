@@ -1,3 +1,9 @@
+//! Type checking
+//!
+//! This module is responsible for checking if the types of all expressions in an AST are valid.
+//! Also, this type checker transforms the AST into a "typed AST" so that the compiler can leverage
+//! all the type information at a later point. The main interface is the [type_check] function.
+
 use std::collections::{HashMap, HashSet};
 
 use miette::Diagnostic;
@@ -52,6 +58,7 @@ pub enum TypeCheckError {
 
 type Result<T> = std::result::Result<T, TypeCheckError>;
 
+/// Check and store the types of all expressions
 pub fn type_check(program: ast::UntypedProgram) -> Result<ast::TypedProgram> {
     let prototypes = program
         .functions
@@ -79,6 +86,9 @@ pub fn type_check(program: ast::UntypedProgram) -> Result<ast::TypedProgram> {
     })
 }
 
+/// The main state during type checking
+///
+/// This state keeps track of function prototypes and which functions were already checked.
 struct TypeChecker {
     prototypes: HashMap<ast::Ident, (Vec<Type>, Type)>,
     already_defined: HashSet<ast::Ident>,
@@ -334,6 +344,7 @@ impl TypeChecker {
     }
 }
 
+/// Assert that two types are equal
 fn expect_type(expected: Type, actual: Type, span: Span) -> Result<()> {
     if actual == expected {
         Ok(())
