@@ -117,9 +117,12 @@ pub enum UnaryOperation {
 pub enum BinaryOperation {
     Add,
     Sub,
+    Mul,
+    Div,
     Equals,
     Less,
     And,
+    Or,
 }
 
 /// The zero-sized type that is used for an untyped AST
@@ -167,9 +170,12 @@ impl fmt::Display for BinaryOperation {
         match self {
             BinaryOperation::Add => write!(f, "+"),
             BinaryOperation::Sub => write!(f, "-"),
+            BinaryOperation::Mul => write!(f, "*"),
+            BinaryOperation::Div => write!(f, "/"),
             BinaryOperation::Equals => write!(f, "=="),
             BinaryOperation::Less => write!(f, "<"),
             BinaryOperation::And => write!(f, "&&"),
+            BinaryOperation::Or => write!(f, "||"),
         }
     }
 }

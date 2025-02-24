@@ -148,6 +148,13 @@ impl<'ctx> Codegen<'ctx> {
                 extended_bindings.insert(local.var, bind);
                 self.compile_expression(&local.body, &extended_bindings)
             }
+            ir::Expression::UnaryOperation(unaop) => {
+                let arg = self.compile_expression(&unaop.inner, bindings)?;
+                match unaop.kind {
+                    ir::UnaryOperationKind::Neg => Ok(self.builder.build_int_neg(arg, "neg")?),
+                    ir::UnaryOperationKind::Not => Ok(self.builder.build_not(arg, "not")?),
+                }
+            }
             ir::Expression::BinaryOperation(binop) => {
                 let lhs = self.compile_expression(&binop.lhs, bindings)?;
                 let rhs = self.compile_expression(&binop.rhs, bindings)?;
@@ -157,6 +164,12 @@ impl<'ctx> Codegen<'ctx> {
                     }
                     ir::BinaryOperationKind::Sub => {
                         Ok(self.builder.build_int_sub(lhs, rhs, "sub")?)
+                    }
+                    ir::BinaryOperationKind::Mul => {
+                        Ok(self.builder.build_int_mul(lhs, rhs, "mul")?)
+                    }
+                    ir::BinaryOperationKind::Div => {
+                        Ok(self.builder.build_int_signed_div(lhs, rhs, "div")?)
                     }
                     ir::BinaryOperationKind::Equals => Ok(self.builder.build_int_compare(
                         inkwell::IntPredicate::EQ,
@@ -171,6 +184,7 @@ impl<'ctx> Codegen<'ctx> {
                         "lt",
                     )?),
                     ir::BinaryOperationKind::And => Ok(self.builder.build_and(lhs, rhs, "and")?),
+                    ir::BinaryOperationKind::Or => Ok(self.builder.build_or(lhs, rhs, "or")?),
                 }
             }
             ir::Expression::Conditional(c) => {

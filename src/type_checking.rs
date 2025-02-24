@@ -202,7 +202,10 @@ impl TypeChecker {
                 let typed_lhs = self.infer_expr(*lhs, vars)?;
                 let typed_rhs = self.infer_expr(*rhs, vars)?;
                 let typ = match op {
-                    ast::BinaryOperation::Add | ast::BinaryOperation::Sub => {
+                    ast::BinaryOperation::Add
+                    | ast::BinaryOperation::Sub
+                    | ast::BinaryOperation::Mul
+                    | ast::BinaryOperation::Div => {
                         expect_type(Type::Int, typed_lhs.type_context, typed_lhs.span)?;
                         expect_type(Type::Int, typed_rhs.type_context, typed_rhs.span)?;
                         Type::Int
@@ -212,7 +215,7 @@ impl TypeChecker {
                         expect_type(Type::Int, typed_rhs.type_context, typed_rhs.span)?;
                         Type::Bool
                     }
-                    ast::BinaryOperation::And => {
+                    ast::BinaryOperation::And | ast::BinaryOperation::Or => {
                         expect_type(Type::Bool, typed_lhs.type_context, typed_lhs.span)?;
                         expect_type(Type::Bool, typed_rhs.type_context, typed_rhs.span)?;
                         Type::Bool

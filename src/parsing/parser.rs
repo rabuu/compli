@@ -47,6 +47,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
 
         let unary = just(Token::Minus)
             .to(ast::UnaryOperation::Neg)
+            .or(just(Token::Bang).to(ast::UnaryOperation::Not))
             .map_with_span(|e, span: Span| (e, span))
             .or_not()
             .then(atom)
@@ -63,13 +64,32 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
                 }
             });
 
-        let sum_or_diff = unary
+        let prod_or_quot = unary
+            .clone()
+            .then(
+                just(Token::Asterisk)
+                    .to(ast::BinaryOperation::Mul)
+                    .or(just(Token::Slash).to(ast::BinaryOperation::Div))
+                    .then(unary)
+                    .repeated(),
+            )
+            .foldl(|lhs, (kind, rhs)| {
+                let span = Span::new(lhs.span.start, rhs.span.end);
+                let e = ast::ExpressionKind::Binary {
+                    op: kind,
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                };
+                ast::Expression::new(e, span, ast::NoContext)
+            });
+
+        let sum_or_diff = prod_or_quot
             .clone()
             .then(
                 just(Token::Plus)
                     .to(ast::BinaryOperation::Add)
                     .or(just(Token::Minus).to(ast::BinaryOperation::Sub))
-                    .then(unary)
+                    .then(prod_or_quot)
                     .repeated(),
             )
             .foldl(|lhs, (kind, rhs)| {
@@ -119,7 +139,25 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
                 ast::Expression::new(e, span, ast::NoContext)
             });
 
-        let term = and.labelled("term");
+        let or = and
+            .clone()
+            .then(
+                just(Token::Or)
+                    .to(ast::BinaryOperation::Or)
+                    .then(and)
+                    .repeated(),
+            )
+            .foldl(|lhs, (kind, rhs)| {
+                let span = Span::new(lhs.span.start, rhs.span.end);
+                let e = ast::ExpressionKind::Binary {
+                    op: kind,
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                };
+                ast::Expression::new(e, span, ast::NoContext)
+            });
+
+        let term = or.labelled("term");
 
         let if_then_else = just(Token::KwIf)
             .map_with_span(|_, span: Span| span.start)

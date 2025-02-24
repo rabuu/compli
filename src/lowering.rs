@@ -131,8 +131,17 @@ impl Lowerer {
                     variable: v,
                     span: expr.span,
                 }),
-            ExpressionKind::Unary { .. } => {
-                todo!()
+            ExpressionKind::Unary { op, inner } => {
+                let arg = self.lower_expression(*inner, vars)?;
+                Ok(ir::Expression::UnaryOperation(Box::new(
+                    ir::UnaryOperation {
+                        kind: match op {
+                            UnaryOperation::Neg => ir::UnaryOperationKind::Neg,
+                            UnaryOperation::Not => ir::UnaryOperationKind::Not,
+                        },
+                        inner: arg,
+                    }
+                )))
             }
             ExpressionKind::Binary { op: kind, lhs, rhs } => {
                 let lhs = self.lower_expression(*lhs, vars)?;
@@ -142,9 +151,12 @@ impl Lowerer {
                         kind: match kind {
                             BinaryOperation::Add => ir::BinaryOperationKind::Add,
                             BinaryOperation::Sub => ir::BinaryOperationKind::Sub,
+                            BinaryOperation::Mul => ir::BinaryOperationKind::Mul,
+                            BinaryOperation::Div => ir::BinaryOperationKind::Div,
                             BinaryOperation::Equals => ir::BinaryOperationKind::Equals,
                             BinaryOperation::Less => ir::BinaryOperationKind::Less,
                             BinaryOperation::And => ir::BinaryOperationKind::And,
+                            BinaryOperation::Or => ir::BinaryOperationKind::Or,
                         },
                         lhs,
                         rhs,

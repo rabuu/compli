@@ -49,6 +49,7 @@ pub enum Expression {
     },
     LocalBinding(Box<LocalBinding>),
     BinaryOperation(Box<BinaryOperation>),
+    UnaryOperation(Box<UnaryOperation>),
     Conditional(Box<Conditional>),
 }
 
@@ -70,9 +71,24 @@ pub struct BinaryOperation {
 pub enum BinaryOperationKind {
     Add,
     Sub,
+    Mul,
+    Div,
     Equals,
     Less,
     And,
+    Or,
+}
+
+#[derive(Debug, Clone)]
+pub struct UnaryOperation {
+    pub kind: UnaryOperationKind,
+    pub inner: Expression,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum UnaryOperationKind {
+    Neg,
+    Not,
 }
 
 #[derive(Debug, Clone)]
@@ -126,9 +142,21 @@ impl fmt::Display for BinaryOperationKind {
         match self {
             BinaryOperationKind::Add => write!(f, "ADD"),
             BinaryOperationKind::Sub => write!(f, "SUB"),
+            BinaryOperationKind::Mul => write!(f, "MUL"),
+            BinaryOperationKind::Div => write!(f, "DIV"),
             BinaryOperationKind::Equals => write!(f, "EQUALS"),
             BinaryOperationKind::Less => write!(f, "LESS"),
             BinaryOperationKind::And => write!(f, "AND"),
+            BinaryOperationKind::Or => write!(f, "OR"),
+        }
+    }
+}
+
+impl fmt::Display for UnaryOperationKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            UnaryOperationKind::Neg => write!(f, "NEG"),
+            UnaryOperationKind::Not => write!(f, "NOT"),
         }
     }
 }
@@ -160,6 +188,7 @@ impl TreeItem for Expression {
             }
             Expression::LocalBinding(x) => write!(f, "{}", style.paint(format!("LET {}", x.var))),
             Expression::BinaryOperation(x) => write!(f, "{}", style.paint(x.kind)),
+            Expression::UnaryOperation(x) => write!(f, "{}", style.paint(x.kind)),
             Expression::Conditional(_) => write!(f, "{}", style.paint("COND")),
         }
     }
@@ -170,6 +199,7 @@ impl TreeItem for Expression {
             Expression::FunctionCall { args, .. } => Cow::from(args.clone()),
             Expression::LocalBinding(x) => Cow::from(vec![x.bind.clone(), x.body.clone()]),
             Expression::BinaryOperation(x) => Cow::from(vec![x.lhs.clone(), x.rhs.clone()]),
+            Expression::UnaryOperation(x) => Cow::from(vec![x.inner.clone()]),
             Expression::Conditional(x) => {
                 Cow::from(vec![x.condition.clone(), x.yes.clone(), x.no.clone()])
             }
