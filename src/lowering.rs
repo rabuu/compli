@@ -100,12 +100,12 @@ impl Lowerer {
 
     fn lower_expression(
         &mut self,
-        exp: Expression<Type>,
+        expr: Expression<Type>,
         vars: &HashMap<Ident, Variable>,
     ) -> Result<ir::Expression> {
         use ir::Expression as E;
         use ir::Value;
-        match exp.kind {
+        match expr.kind {
             ExpressionKind::Int(i) => Ok(E::Direct(Value::Number(i as i32))),
             ExpressionKind::Bool(b) => Ok(E::Direct(Value::Boolean(b))),
             ExpressionKind::Var(v) => vars
@@ -114,7 +114,7 @@ impl Lowerer {
                 .map(|v| E::Direct(Value::Variable(v)))
                 .ok_or(LoweringError::VariableNotBound {
                     variable: v,
-                    span: exp.span,
+                    span: expr.span,
                 }),
             ExpressionKind::Unary { .. } => {
                 todo!()
@@ -160,8 +160,8 @@ impl Lowerer {
 
                     let rest = Expression {
                         kind: ExpressionKind::LetIn { binds, body },
-                        span: exp.span,
-                        type_context: exp.type_context,
+                        span: expr.span,
+                        type_context: expr.type_context,
                     };
                     let rest = self.lower_expression(rest, &extended_vars)?;
 
