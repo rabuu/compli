@@ -1,3 +1,14 @@
+//! Parsing
+//!
+//! This module is responsible for turning the source code from its string form into an AST.
+//! The main interface is [parse] which takes a string and generates an [ast::UntypedProgram].
+//!
+//! Internally, parsing works in two phases:
+//! - the [lexer] scans the source text and turns it into a stream of tokens
+//! - the [parser] generates the AST from these tokens
+//!
+//! The module relies heavily on the [chumsky] crate for lexing and parsing.
+
 use miette::Diagnostic;
 use thiserror::Error;
 
@@ -43,6 +54,7 @@ pub enum ParsingError {
     },
 }
 
+/// Parse compli source code into an AST
 pub fn parse(source: &str) -> Result<ast::UntypedProgram, Vec<ParsingError>> {
     let end_of_input = Span::marker(source.chars().count());
 
@@ -77,6 +89,7 @@ pub fn parse(source: &str) -> Result<ast::UntypedProgram, Vec<ParsingError>> {
     Err(errors)
 }
 
+/// Turn a chumsky error into our error type
 fn build_error(err: ParseErr<String>) -> ParsingError {
     let eof = String::from("end of file");
     match err.reason() {

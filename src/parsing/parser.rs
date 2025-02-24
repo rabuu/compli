@@ -1,3 +1,8 @@
+//! Parser
+//!
+//! This submodule parses a stream of tokens into an AST. Its main interface is the [parser]
+//! function.
+
 use chumsky::prelude::*;
 
 use super::lexer::Token;
@@ -5,6 +10,7 @@ use super::ParseErr;
 
 use crate::{ast, Span, Type};
 
+/// Parse tokens into an AST
 pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Token>> + Clone {
     let ident = select! { Token::Ident(ident) => ident }.labelled("identifier");
 
