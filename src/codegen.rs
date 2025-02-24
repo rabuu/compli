@@ -1,3 +1,10 @@
+//! Code generation
+//!
+//! This module is responsible for generating LLVM IR from compli's own intermediate
+//! representation ([ir]). Its main interface is the [compile] function.
+//!
+//! This module heavily relies on the [inkwell] crate.
+
 use std::collections::HashMap;
 
 use miette::Diagnostic;
@@ -22,6 +29,7 @@ pub enum CodegenError {
 
 type Result<T> = std::result::Result<T, CodegenError>;
 
+/// Compile an [inkwell]/LLVM module from a compli program
 pub fn compile(context: &Context, program: ir::Program) -> Result<Module> {
     let mut codegen = Codegen::new(context, &program.skeleton(), &program.entry)?;
 
@@ -32,6 +40,7 @@ pub fn compile(context: &Context, program: ir::Program) -> Result<Module> {
     Ok(codegen.module)
 }
 
+/// The main state of the code generation phase
 struct Codegen<'ctx> {
     context: &'ctx Context,
     builder: Builder<'ctx>,
@@ -40,6 +49,7 @@ struct Codegen<'ctx> {
 }
 
 impl<'ctx> Codegen<'ctx> {
+    /// Initialize [inkwell]'s codegen machinery, compile all prototypes and the entry function
     fn new(
         context: &'ctx Context,
         skeleton: &[ir::FunctionPrototype],
@@ -48,6 +58,8 @@ impl<'ctx> Codegen<'ctx> {
         let builder = context.create_builder();
         let module = context.create_module("compliModule");
 
+        // The "entry function" will get called from the runtimes main function
+        // It has the type "() -> int" and has the name "__compli_entry".
         let entry_fn_type = context.i32_type().fn_type(&[], false);
         let entry_fn = module.add_function("__compli_entry", entry_fn_type, None);
 
@@ -59,7 +71,6 @@ impl<'ctx> Codegen<'ctx> {
         };
 
         let builtins = [builtin::compli_trace_int(), builtin::compli_trace_bool()];
-
         for prototype in skeleton.iter().chain(builtins.iter()) {
             codegen.compile_prototype(prototype)?;
         }
