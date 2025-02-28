@@ -10,17 +10,17 @@ func return_bool(): bool = true
 func foo(a: int, c: bool): float = 12.34
 
 // Many common basic operations are supported.
-func add(a: int, b: int) = a + b
-func sub(a: float, b: float) = a - b
-func gauss(n: int) = (n * (n + 1)) / 2
-func boolean(a: bool, b: bool, c: bool) = !a && b || !c
+func add(a: int, b: int): int = a + b
+func sub(a: float, b: float): float = a - b
+func gauss(n: int): int = (n * (n + 1)) / 2
+func boolean(a: bool, b: bool, c: bool): bool = !a && b || !c
 
 // You must not mix data types. The following would not work:
 // func illegal_mixup(a: int, b: float) = a + b
 
 // You can give names to temporary values.
-func let_example(a: int) = let square = a * a in square + 1
-func complex_let_example(a: int) = (
+func let_example(a: int): int = let square = a * a in square + 1
+func complex_let_example(a: int): int = (
 	let b = 2 * a,
 		c = b + 1,
 		c = c + b
