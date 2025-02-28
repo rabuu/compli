@@ -1,7 +1,7 @@
 //! Lexer
 //!
 //! This submodule prepares source code for parsing by splitting the text into easy-to-work-with
-//! tokens. The [lex] function is its main interface.
+//! tokens. The [lex] parser is its main interface.
 
 use std::fmt;
 
@@ -145,4 +145,104 @@ pub fn lex() -> impl Parser<char, Vec<(Token, Span)>, Error = ParseErr<char>> {
         .padded()
         .repeated()
         .then_ignore(end())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tokenize(src: &str) -> Vec<(Token, Span)> {
+        let eoi = Span::marker(src.chars().count());
+
+        let chars = src.chars().enumerate().map(|(i, c)| (c, Span::single(i)));
+
+        lex().parse(chumsky::Stream::from_iter(eoi, chars)).unwrap()
+    }
+
+    fn tokenize_without_spans(src: &str) -> Vec<Token> {
+        tokenize(src).into_iter().map(|(tok, _)| tok).collect()
+    }
+
+    #[test]
+    fn numbers() {
+        let src = r#"0 0.0 123.4"#;
+
+        assert_eq!(
+            tokenize_without_spans(src),
+            vec![
+                Token::Int(String::from("0")),
+                Token::Float(String::from("0.0")),
+                Token::Float(String::from("123.4"))
+            ]
+        );
+    }
+
+    #[test]
+    fn spans() {
+        let src = r#"func
+let
+    in
+        "#;
+
+        assert_eq!(
+            tokenize(src),
+            vec![
+                (Token::KwFunc, Span::new(0, 4)),
+                (Token::KwLet, Span::new(5, 8)),
+                (Token::KwIn, Span::new(13, 15))
+            ]
+        );
+    }
+
+    #[test]
+    fn function() {
+        let src = r#"
+func foo(a: int): float = (
+    let b = 1, c = true in
+    if 3 > 4 then 123.4 else 0.0
+)
+        "#;
+
+        assert_eq!(
+            tokenize_without_spans(src),
+            vec![
+                Token::KwFunc,
+                Token::Ident(String::from("foo")),
+                Token::ParenOpen,
+                Token::Ident(String::from("a")),
+                Token::Colon,
+                Token::KwInt,
+                Token::ParenClose,
+                Token::Colon,
+                Token::KwFloat,
+                Token::Assign,
+                Token::ParenOpen,
+                Token::KwLet,
+                Token::Ident(String::from("b")),
+                Token::Assign,
+                Token::Int(String::from("1")),
+                Token::Comma,
+                Token::Ident(String::from("c")),
+                Token::Assign,
+                Token::Bool(true),
+                Token::KwIn,
+                Token::KwIf,
+                Token::Int(String::from("3")),
+                Token::Greater,
+                Token::Int(String::from("4")),
+                Token::KwThen,
+                Token::Float(String::from("123.4")),
+                Token::KwElse,
+                Token::Float(String::from("0.0")),
+                Token::ParenClose,
+            ]
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn unknown_symbol() {
+        let src = "#";
+        let _ = tokenize(src);
+    }
 }

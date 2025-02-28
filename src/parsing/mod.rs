@@ -132,3 +132,76 @@ fn build_error(err: ParseErr<String>) -> ParsingError {
         },
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Type;
+
+    use super::*;
+
+    #[test]
+    fn program() {
+        let src = r#"
+func foo(): int = 1 func BAr_2(_: float): bool=     true &&  false
+        "#;
+
+        assert_eq!(
+            parse(src).unwrap(),
+            ast::Program {
+                functions: vec![
+                    ast::Function {
+                        name: String::from("foo"),
+                        body: ast::Expression {
+                            kind: ast::ExpressionKind::Int(1),
+                            span: Span::new(19, 20),
+                            type_context: ast::NoContext,
+                        },
+                        params: vec![],
+                        return_type: Type::Int,
+                        full_span: Span::new(1, 20),
+                        name_span: Span::new(6, 9),
+                    },
+                    ast::Function {
+                        name: String::from("BAr_2"),
+                        body: ast::Expression {
+                            kind: ast::ExpressionKind::Binary {
+                                op: ast::BinaryOperation::And,
+                                lhs: Box::new(ast::Expression {
+                                    kind: ast::ExpressionKind::Bool(true),
+                                    span: Span::new(53, 57),
+                                    type_context: ast::NoContext,
+                                }),
+                                rhs: Box::new(ast::Expression {
+                                    kind: ast::ExpressionKind::Bool(false),
+                                    span: Span::new(62, 67),
+                                    type_context: ast::NoContext,
+                                }),
+
+                            },
+                            span: Span::new(53, 67),
+                            type_context: ast::NoContext,
+                        },
+                        params: vec![(String::from("_"), Type::Float)],
+                        return_type: Type::Bool,
+                        full_span: Span::new(21, 67),
+                        name_span: Span::new(26, 31),
+                    }
+                ]
+            }
+        )
+    }
+
+    #[test]
+    #[should_panic]
+    fn unclosed() {
+        let src = "func foo(): int = (1 + 2";
+        parse(src).unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn unopened() {
+        let src = "func foo(): int = 1 + 2)";
+        parse(src).unwrap();
+    }
+}
