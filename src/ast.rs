@@ -20,7 +20,7 @@ pub type UntypedProgram = Program<NoContext>;
 pub type TypedProgram = Program<Type>;
 
 /// A whole compli program that consists of a number of functions
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Program<C>
 where
     C: fmt::Display + Clone,
@@ -29,7 +29,7 @@ where
 }
 
 /// A function that consists of a prototype/signature and one body expression
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Function<C>
 where
     C: fmt::Display + Clone,
@@ -44,7 +44,7 @@ where
 
 /// An expression is mainly a wrapper for [ExpressionKind] but with attached meta information
 /// (a span and maybe some type)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Expression<C>
 where
     C: fmt::Display + Clone,
@@ -68,7 +68,7 @@ where
 }
 
 /// An expression
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ExpressionKind<C>
 where
     C: fmt::Display + Clone,
@@ -107,14 +107,14 @@ where
 }
 
 /// A unary operation
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum UnaryOperation {
     Neg,
     Not,
 }
 
 /// A binary operation
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BinaryOperation {
     Add,
     Sub,
@@ -132,7 +132,7 @@ pub enum BinaryOperation {
 /// The zero-sized type that is used for an untyped AST
 ///
 /// It is basically `()` but is displayed as `""` (important for pretty printing)
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NoContext;
 
 impl fmt::Display for NoContext {
