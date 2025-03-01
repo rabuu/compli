@@ -93,6 +93,7 @@ pub fn type_check(program: ast::UntypedProgram) -> Result<ast::TypedProgram> {
 
     Ok(ast::Program {
         functions: typed_functions,
+        records: program.records,
     })
 }
 

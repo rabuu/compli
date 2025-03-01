@@ -222,7 +222,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
                 .delimited_by(just(Token::ParenOpen), just(Token::ParenClose)),
         )
         .then_ignore(just(Token::Colon))
-        .then(typ)
+        .then(typ.clone())
         .then_ignore(just(Token::Assign))
         .then(expr.clone())
         .map(
@@ -237,8 +237,47 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
             },
         );
 
-    func.repeated()
+    let record = just(Token::KwData)
+        .ignore_then(ident.map_with_span(|name, span: Span| (name, span)))
+        .then_ignore(just(Token::Assign))
+        .then(
+            ident
+                .then_ignore(just(Token::Colon))
+                .then(typ)
+                .separated_by(just(Token::Comma))
+                .allow_trailing(),
+        )
+        .map(|((name, name_span), fields)| {
+            ast::Record {
+                name,
+                fields,
+                name_span,
+            }
+        });
+
+    enum FunctionOrRecord {
+        Function(ast::Function<ast::NoContext>),
+        Record(ast::Record),
+    }
+
+    let func_or_record = choice((func.map(FunctionOrRecord::Function), record.map(FunctionOrRecord::Record)));
+
+    func_or_record.repeated()
         .collect()
-        .map(|functions| ast::Program { functions })
+        .map(|items: Vec<FunctionOrRecord>| {
+            let mut functions = Vec::new();
+            let mut records = Vec::new();
+            for item in items {
+                match item {
+                    FunctionOrRecord::Function(func) => functions.push(func),
+                    FunctionOrRecord::Record(rec) => records.push(rec),
+                }
+            }
+
+            ast::Program {
+                records,
+                functions,
+            }
+        })
         .then_ignore(end())
 }

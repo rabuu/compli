@@ -24,6 +24,7 @@ pub enum Token {
     KwFloat,
 
     KwFunc,
+    KwData,
     KwIf,
     KwThen,
     KwElse,
@@ -62,6 +63,7 @@ impl fmt::Display for Token {
             Token::Float(x) => write!(f, "{}", x),
             Token::Ident(id) => write!(f, "{}", id),
             Token::KwFunc => write!(f, "func"),
+            Token::KwData => write!(f, "data"),
             Token::Assign => write!(f, "="),
             Token::Equals => write!(f, "=="),
             Token::Less => write!(f, "<"),
@@ -125,6 +127,7 @@ pub fn lex() -> impl Parser<char, Vec<(Token, Span)>, Error = ParseErr<char>> {
         "int" => Token::KwInt,
         "float" => Token::KwFloat,
         "func" => Token::KwFunc,
+        "data" => Token::KwData,
         "if" => Token::KwIf,
         "then" => Token::KwThen,
         "else" => Token::KwElse,

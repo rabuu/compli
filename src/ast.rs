@@ -25,7 +25,16 @@ pub struct Program<C>
 where
     C: fmt::Display + Clone,
 {
+    pub records: Vec<Record>,
     pub functions: Vec<Function<C>>,
+}
+
+/// A record type that is the product of other types
+#[derive(Debug, Clone, PartialEq)]
+pub struct Record {
+    pub name: Ident,
+    pub fields: Vec<(String, Type)>,
+    pub name_span: Span,
 }
 
 /// A function that consists of a prototype/signature and one body expression
@@ -152,6 +161,9 @@ where
     C: fmt::Display + Clone,
 {
     pub fn pretty_print(&self) -> io::Result<()> {
+        for rec in &self.records {
+            print_tree(rec)?;
+        }
         for func in &self.functions {
             print_tree(func)?;
         }
@@ -183,6 +195,42 @@ impl fmt::Display for BinaryOperation {
             BinaryOperation::And => write!(f, "&&"),
             BinaryOperation::Or => write!(f, "||"),
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RecordField {
+    name: String,
+    typ: Type,
+}
+
+impl TreeItem for RecordField {
+    type Child = RecordField;
+
+    fn write_self<W: io::Write>(&self, f: &mut W, style: &Style) -> io::Result<()> {
+        write!(f, "{}", style.paint(format!("{}: {}", self.name, self.typ)))
+    }
+
+    fn children(&self) -> Cow<[Self::Child]> {
+        vec![].into()
+    }
+}
+
+impl TreeItem for Record {
+    type Child = RecordField;
+
+    fn write_self<W: io::Write>(&self, f: &mut W, style: &Style) -> io::Result<()> {
+        write!(f, "{}", style.paint(format!("DATA {}", self.name.clone())))
+    }
+
+    fn children(&self) -> Cow<[Self::Child]> {
+        let fields: Vec<RecordField> = self
+            .fields
+            .clone()
+            .into_iter()
+            .map(|(name, typ)| RecordField { name, typ })
+            .collect();
+        Cow::from(fields)
     }
 }
 
