@@ -212,8 +212,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
     });
 
     let func = just(Token::KwFunc)
-        .map_with_span(|_, span: Span| span.start)
-        .then(ident.map_with_span(|name, span: Span| (name, span)))
+        .ignore_then(ident.map_with_span(|name, span: Span| (name, span)))
         .then(
             ident
                 .then_ignore(just(Token::Colon))
@@ -227,14 +226,12 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
         .then_ignore(just(Token::Assign))
         .then(expr.clone())
         .map(
-            |((((start, (name, name_span)), params), return_type), body)| {
-                let full_span = Span::new(start, body.span.end);
+            |((((name, name_span), params), return_type), body)| {
                 ast::Function {
                     name,
                     params,
                     return_type,
                     body,
-                    full_span,
                     name_span,
                 }
             },

@@ -158,7 +158,6 @@ func foo(): int = 1 func BAr_2(_: float): bool=     true &&  false
                         },
                         params: vec![],
                         return_type: Type::Int,
-                        full_span: Span::new(1, 20),
                         name_span: Span::new(6, 9),
                     },
                     ast::Function {
@@ -183,7 +182,6 @@ func foo(): int = 1 func BAr_2(_: float): bool=     true &&  false
                         },
                         params: vec![(String::from("_"), Type::Float)],
                         return_type: Type::Bool,
-                        full_span: Span::new(21, 67),
                         name_span: Span::new(26, 31),
                     }
                 ]

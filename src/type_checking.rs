@@ -146,7 +146,6 @@ impl TypeChecker {
             params: function.params,
             return_type: function.return_type,
             body: typed_body,
-            full_span: function.full_span,
             name_span: function.name_span,
         })
     }
