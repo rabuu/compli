@@ -2,8 +2,8 @@
 //!
 //! Here are prototype definitions for functions that exist in compli's runtime.
 
-use crate::ir::FunctionPrototype;
-use crate::{Type, Variable};
+use crate::ir::{FunctionPrototype, Type};
+use crate::Variable;
 
 pub fn all_builtins() -> [FunctionPrototype; 3] {
     [

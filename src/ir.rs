@@ -6,7 +6,7 @@
 //! Since we are using [inkwell] and its recursive builder, our intermediate representation can
 //! still be quite high-level and tree-like.
 
-use crate::{Type, Variable};
+use crate::Variable;
 
 #[derive(Debug)]
 pub struct Program {
@@ -31,6 +31,14 @@ pub struct FunctionPrototype {
     pub name: String,
     pub parameters: Vec<(Variable, Type)>,
     pub return_type: Type,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Type {
+    Int,
+    Float,
+    Bool,
+    Record(Vec<Type>),
 }
 
 #[derive(Debug, Clone)]
@@ -130,6 +138,26 @@ impl Program {
         }
 
         Ok(())
+    }
+}
+
+impl fmt::Display for Type {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Type::Int => write!(f, "int"),
+            Type::Float => write!(f, "float"),
+            Type::Bool => write!(f, "bool"),
+            Type::Record(rec) => {
+                write!(f, "{{")?;
+                for (i, field) in rec.iter().enumerate() {
+                    write!(f, "{field}")?;
+                    if i != rec.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, "}}")
+            }
+        }
     }
 }
 

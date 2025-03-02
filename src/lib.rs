@@ -20,4 +20,4 @@ pub use lowering::{lower, LoweringError};
 pub use parsing::{parse, ParsingError};
 pub use type_checking::{type_check, TypeCheckError};
 
-pub(crate) use common::{Span, Type, Variable};
+pub(crate) use common::{Span, Variable};

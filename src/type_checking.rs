@@ -9,14 +9,14 @@ use std::collections::{HashMap, HashSet};
 use miette::Diagnostic;
 use thiserror::Error;
 
-use crate::{ast, Span, Type};
+use crate::{ast, Span};
 
 #[derive(Debug, Error, Diagnostic)]
 pub enum TypeCheckError {
     #[error("Expected an expression of type `{expected}` but got `{actual}`")]
     UnexpectedType {
-        expected: Type,
-        actual: Type,
+        expected: ast::Type,
+        actual: ast::Type,
 
         #[label("expression with unexpected type")]
         span: Span,
@@ -24,9 +24,9 @@ pub enum TypeCheckError {
 
     #[error("Expected an expression of type `{expected1}` or `{expected2}` but got `{actual}`")]
     UnexpectedTypeOfTwo {
-        expected1: Type,
-        expected2: Type,
-        actual: Type,
+        expected1: ast::Type,
+        expected2: ast::Type,
+        actual: ast::Type,
 
         #[label("expression with unexpected type")]
         span: Span,
@@ -73,11 +73,12 @@ pub fn type_check(program: ast::UntypedProgram) -> Result<ast::TypedProgram> {
     let prototypes = program
         .functions
         .iter()
+        .cloned()
         .map(|f| {
             (
-                f.name.clone(),
+                f.name,
                 (
-                    f.params.iter().map(|(_, typ)| *typ).collect(),
+                    f.params.into_iter().map(|(_, typ)| typ).collect(),
                     f.return_type,
                 ),
             )
@@ -101,12 +102,12 @@ pub fn type_check(program: ast::UntypedProgram) -> Result<ast::TypedProgram> {
 ///
 /// This state keeps track of function prototypes and which functions were already checked.
 struct TypeChecker {
-    prototypes: HashMap<ast::Ident, (Vec<Type>, Type)>,
+    prototypes: HashMap<ast::Ident, (Vec<ast::Type>, ast::Type)>,
     already_defined: HashSet<ast::Ident>,
 }
 
 impl TypeChecker {
-    fn new(prototypes: HashMap<ast::Ident, (Vec<Type>, Type)>) -> Self {
+    fn new(prototypes: HashMap<ast::Ident, (Vec<ast::Type>, ast::Type)>) -> Self {
         Self {
             prototypes,
             already_defined: HashSet::new(),
@@ -116,7 +117,7 @@ impl TypeChecker {
     fn check_function(
         &mut self,
         function: ast::Function<ast::NoContext>,
-    ) -> Result<ast::Function<Type>> {
+    ) -> Result<ast::Function<ast::Type>> {
         let name = function.name.as_str();
 
         const ILLEGAL_NAMES: [&str; 1] = ["trace"];
@@ -137,8 +138,8 @@ impl TypeChecker {
         let vars = function.params.iter().cloned().collect();
         let typed_body = self.infer_expr(function.body, &vars)?;
         expect_type(
-            function.return_type,
-            typed_body.type_context,
+            &function.return_type,
+            &typed_body.type_context,
             typed_body.span,
         )?;
 
@@ -154,31 +155,31 @@ impl TypeChecker {
     fn infer_expr(
         &self,
         expr: ast::Expression<ast::NoContext>,
-        vars: &HashMap<ast::Ident, Type>,
-    ) -> Result<ast::Expression<Type>> {
+        vars: &HashMap<ast::Ident, ast::Type>,
+    ) -> Result<ast::Expression<ast::Type>> {
         match expr.kind {
             ast::ExpressionKind::Int(x) => Ok(ast::Expression {
                 kind: ast::ExpressionKind::Int(x),
                 span: expr.span,
-                type_context: Type::Int,
+                type_context: ast::Type::Int,
             }),
 
             ast::ExpressionKind::Float(x) => Ok(ast::Expression {
                 kind: ast::ExpressionKind::Float(x),
                 span: expr.span,
-                type_context: Type::Float,
+                type_context: ast::Type::Float,
             }),
 
             ast::ExpressionKind::Bool(x) => Ok(ast::Expression {
                 kind: ast::ExpressionKind::Bool(x),
                 span: expr.span,
-                type_context: Type::Bool,
+                type_context: ast::Type::Bool,
             }),
 
             ast::ExpressionKind::Var(x) => {
                 let typ = vars
                     .get(&x)
-                    .copied()
+                    .cloned()
                     .ok_or_else(|| TypeCheckError::NotBound {
                         name: x.clone(),
                         span: expr.span,
@@ -195,12 +196,17 @@ impl TypeChecker {
                 let arg = self.infer_expr(*inner, vars)?;
                 let typ = match op {
                     ast::UnaryOperation::Neg => {
-                        expect_type_of_two(Type::Int, Type::Float, arg.type_context, arg.span)?;
-                        arg.type_context
+                        expect_type_of_two(
+                            &ast::Type::Int,
+                            &ast::Type::Float,
+                            &arg.type_context,
+                            arg.span,
+                        )?;
+                        arg.type_context.clone()
                     }
                     ast::UnaryOperation::Not => {
-                        expect_type(Type::Bool, arg.type_context, arg.span)?;
-                        Type::Bool
+                        expect_type(&ast::Type::Bool, &arg.type_context, arg.span)?;
+                        ast::Type::Bool
                     }
                 };
 
@@ -223,17 +229,17 @@ impl TypeChecker {
                     | ast::BinaryOperation::Mul
                     | ast::BinaryOperation::Div => {
                         expect_type_of_two(
-                            Type::Int,
-                            Type::Float,
-                            typed_lhs.type_context,
+                            &ast::Type::Int,
+                            &ast::Type::Float,
+                            &typed_lhs.type_context,
                             typed_lhs.span,
                         )?;
                         expect_type(
-                            typed_lhs.type_context,
-                            typed_rhs.type_context,
+                            &typed_lhs.type_context,
+                            &typed_rhs.type_context,
                             typed_rhs.span,
                         )?;
-                        typed_lhs.type_context
+                        typed_lhs.type_context.clone()
                     }
                     ast::BinaryOperation::Equals
                     | ast::BinaryOperation::Less
@@ -241,22 +247,22 @@ impl TypeChecker {
                     | ast::BinaryOperation::Greater
                     | ast::BinaryOperation::GreaterEq => {
                         expect_type_of_two(
-                            Type::Int,
-                            Type::Float,
-                            typed_lhs.type_context,
+                            &ast::Type::Int,
+                            &ast::Type::Float,
+                            &typed_lhs.type_context,
                             typed_lhs.span,
                         )?;
                         expect_type(
-                            typed_lhs.type_context,
-                            typed_rhs.type_context,
+                            &typed_lhs.type_context,
+                            &typed_rhs.type_context,
                             typed_rhs.span,
                         )?;
-                        Type::Bool
+                        ast::Type::Bool
                     }
                     ast::BinaryOperation::And | ast::BinaryOperation::Or => {
-                        expect_type(Type::Bool, typed_lhs.type_context, typed_lhs.span)?;
-                        expect_type(Type::Bool, typed_rhs.type_context, typed_rhs.span)?;
-                        Type::Bool
+                        expect_type(&ast::Type::Bool, &typed_lhs.type_context, typed_lhs.span)?;
+                        expect_type(&ast::Type::Bool, &typed_rhs.type_context, typed_rhs.span)?;
+                        ast::Type::Bool
                     }
                 };
 
@@ -277,18 +283,18 @@ impl TypeChecker {
                 let mut typed_binds = Vec::with_capacity(binds.len());
                 for (var, annotation, bind) in binds {
                     let typed_bind = self.infer_expr(bind, &extended_vars)?;
-                    let typ = typed_bind.type_context;
-                    let bind_span = typed_bind.span;
-                    extended_vars.insert(var.clone(), typ);
+
+                    if let Some(ref annotation) = annotation {
+                        expect_type(annotation, &typed_bind.type_context, typed_bind.span)?;
+                    }
+
+                    extended_vars.insert(var.clone(), typed_bind.type_context.clone());
                     typed_binds.push((var, annotation, typed_bind));
 
-                    if let Some(annotation) = annotation {
-                        expect_type(annotation, typ, bind_span)?;
-                    }
                 }
 
                 let typed_body = self.infer_expr(*body, &extended_vars)?;
-                let typ = typed_body.type_context;
+                let typ = typed_body.type_context.clone();
 
                 Ok(ast::Expression {
                     kind: ast::ExpressionKind::LetIn {
@@ -303,15 +309,15 @@ impl TypeChecker {
             ast::ExpressionKind::IfThenElse { condition, yes, no } => {
                 let typed_condition = self.infer_expr(*condition, vars)?;
                 expect_type(
-                    Type::Bool,
-                    typed_condition.type_context,
+                    &ast::Type::Bool,
+                    &typed_condition.type_context,
                     typed_condition.span,
                 )?;
 
                 let typed_yes = self.infer_expr(*yes, vars)?;
                 let typed_no = self.infer_expr(*no, vars)?;
-                expect_type(typed_yes.type_context, typed_no.type_context, typed_no.span)?;
-                let typ = typed_yes.type_context;
+                expect_type(&typed_yes.type_context, &typed_no.type_context, typed_no.span)?;
+                let typ = typed_yes.type_context.clone();
 
                 Ok(ast::Expression {
                     kind: ast::ExpressionKind::IfThenElse {
@@ -337,7 +343,7 @@ impl TypeChecker {
 
                     let mut args = args;
                     let typed_arg = self.infer_expr(args.swap_remove(0), vars)?;
-                    let typ = typed_arg.type_context;
+                    let typ = typed_arg.type_context.clone();
 
                     return Ok(ast::Expression {
                         kind: ast::ExpressionKind::Call {
@@ -366,9 +372,9 @@ impl TypeChecker {
                 }
 
                 let mut typed_args = Vec::with_capacity(args.len());
-                for (arg, &param) in args.into_iter().zip(params.iter()) {
+                for (arg, param) in args.into_iter().zip(params.iter()) {
                     let typed_arg = self.infer_expr(arg, vars)?;
-                    expect_type(param, typed_arg.type_context, typed_arg.span)?;
+                    expect_type(param, &typed_arg.type_context, typed_arg.span)?;
                     typed_args.push(typed_arg);
                 }
 
@@ -378,7 +384,7 @@ impl TypeChecker {
                         args: typed_args,
                     },
                     span: expr.span,
-                    type_context: *ret,
+                    type_context: ret.clone(),
                 })
             }
         }
@@ -386,27 +392,32 @@ impl TypeChecker {
 }
 
 /// Assert that two types are equal
-fn expect_type(expected: Type, actual: Type, span: Span) -> Result<()> {
-    if actual == expected {
+fn expect_type(expected: &ast::Type, actual: &ast::Type, span: Span) -> Result<()> {
+    if *actual == *expected {
         Ok(())
     } else {
         Err(TypeCheckError::UnexpectedType {
-            expected,
-            actual,
+            expected: expected.clone(),
+            actual: actual.clone(),
             span,
         })
     }
 }
 
 /// Assert that a type is one of a number of others
-fn expect_type_of_two(expected1: Type, expected2: Type, actual: Type, span: Span) -> Result<()> {
+fn expect_type_of_two(
+    expected1: &ast::Type,
+    expected2: &ast::Type,
+    actual: &ast::Type,
+    span: Span,
+) -> Result<()> {
     if actual == expected1 || actual == expected2 {
         Ok(())
     } else {
         Err(TypeCheckError::UnexpectedTypeOfTwo {
-            expected1,
-            expected2,
-            actual,
+            expected1: expected1.clone(),
+            expected2: expected2.clone(),
+            actual: actual.clone(),
             span,
         })
     }

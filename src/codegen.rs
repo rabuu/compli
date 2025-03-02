@@ -16,7 +16,7 @@ use inkwell::module::Module;
 use inkwell::types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum};
 use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue};
 
-use crate::{builtin, ir, Type, Variable};
+use crate::{builtin, ir, Variable};
 
 #[derive(Debug, Error, Diagnostic)]
 pub enum CodegenError {
@@ -128,11 +128,13 @@ impl<'ctx> Codegen<'ctx> {
         Ok(self.function)
     }
 
-    fn compile_type(&self, typ: &Type) -> BasicTypeEnum<'ctx> {
+    fn compile_type(&self, typ: &ir::Type) -> BasicTypeEnum<'ctx> {
         match typ {
-            Type::Int => self.context.i32_type().as_basic_type_enum(),
-            Type::Float => self.context.f32_type().as_basic_type_enum(),
-            Type::Bool => self.context.bool_type().as_basic_type_enum(),
+            ir::Type::Int => self.context.i32_type().as_basic_type_enum(),
+            ir::Type::Float => self.context.f32_type().as_basic_type_enum(),
+            ir::Type::Bool => self.context.bool_type().as_basic_type_enum(),
+            // TODO: compile record types
+            ir::Type::Record(_) => todo!(),
         }
     }
 

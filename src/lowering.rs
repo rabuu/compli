@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use miette::Diagnostic;
 use thiserror::Error;
 
-use crate::{ast::*, ir, Span, Type, Variable};
+use crate::{ast, ir, Span, Variable};
 
 #[derive(Debug, Error, Diagnostic)]
 pub enum LoweringError {
@@ -37,24 +37,43 @@ pub enum LoweringError {
 type Result<T> = std::result::Result<T, LoweringError>;
 
 /// Turn the AST (with type information) into IR
-pub fn lower(program: TypedProgram) -> Result<ir::Program> {
-    let mut lowerer = Lowerer::default();
-    lowerer.lower_program(program)
+pub fn lower(ast::TypedProgram { records, functions }: ast::TypedProgram) -> Result<ir::Program> {
+    let mut lowerer = Lowerer::new(records);
+    lowerer.lower_program(functions)
 }
 
 /// The main state during lowering
 ///
 /// This state keeps track of which variables can be used as fresh.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct Lowerer {
     fresh_variable: Variable,
+    record_definitions: HashMap<String, ir::Type>,
 }
 
 impl Lowerer {
-    fn lower_program(&mut self, program: TypedProgram) -> Result<ir::Program> {
-        let mut functions = Vec::with_capacity(program.functions.len());
+    fn new(records: Vec<ast::Record>) -> Self {
+        let mut lowerer = Self {
+            fresh_variable: Variable::default(),
+            record_definitions: HashMap::default(),
+        };
+
+        for ast::Record { name, fields, .. } in records {
+            let lowered_fields = fields
+                .into_iter()
+                .map(|(_, typ)| lowerer.lower_type(typ))
+                .collect();
+
+            lowerer.record_definitions.insert(name, ir::Type::Record(lowered_fields));
+        }
+
+        lowerer
+    }
+
+    fn lower_program(&mut self, functions: Vec<ast::Function<ast::Type>>) -> Result<ir::Program> {
+        let mut lowered_functions = Vec::with_capacity(functions.len());
         let mut entry = None;
-        for func in program.functions {
+        for func in functions {
             let func_is_main = func.name.as_str() == "main";
             let name_span = func.name_span;
 
@@ -64,32 +83,32 @@ impl Lowerer {
             if func_is_main {
                 if !function.prototype.parameters.is_empty() {
                     return Err(LoweringError::MalformedEntryFunction {
-                        context: String::from("The main function does not take any arguments"),
+                        context: String::from("The main function must not take any arguments"),
                         span: name_span,
                     });
                 }
 
-                if function.prototype.return_type != Type::Int {
+                if function.prototype.return_type != ir::Type::Int {
                     return Err(LoweringError::MalformedEntryFunction {
-                        context: String::from("The main function does always return the type int"),
+                        context: String::from("The main function must always return the type int"),
                         span: name_span,
                     });
                 }
 
                 entry = Some(function.body);
             } else {
-                functions.push(function);
+                lowered_functions.push(function);
             }
         }
 
         Ok(ir::Program {
             entry: entry.ok_or(LoweringError::NoEntryFunction)?,
-            functions,
+            functions: lowered_functions,
         })
     }
 
-    fn lower_function(&mut self, func: Function<Type>) -> Result<ir::FunctionDefinition> {
-        let param_vars: Vec<(Ident, Variable, Type)> = func
+    fn lower_function(&mut self, func: ast::Function<ast::Type>) -> Result<ir::FunctionDefinition> {
+        let param_vars: Vec<(ast::Ident, Variable, ast::Type)> = func
             .params
             .into_iter()
             .map(|(arg, typ)| (arg, self.fresh_variable(), typ))
@@ -105,9 +124,9 @@ impl Lowerer {
             name: func.name.clone(),
             parameters: param_vars
                 .into_iter()
-                .map(|(_, var, typ)| (var, typ))
+                .map(|(_, var, typ)| (var, self.lower_type(typ)))
                 .collect(),
-            return_type: func.return_type,
+            return_type: self.lower_type(func.return_type),
         };
 
         let body = self.lower_expression(func.body, &vars)?;
@@ -117,14 +136,14 @@ impl Lowerer {
 
     fn lower_expression(
         &mut self,
-        expr: Expression<Type>,
-        vars: &HashMap<Ident, Variable>,
+        expr: ast::Expression<ast::Type>,
+        vars: &HashMap<ast::Ident, Variable>,
     ) -> Result<ir::Expression> {
         match expr.kind {
-            ExpressionKind::Int(i) => Ok(ir::Expression::Direct(ir::Value::Integer(i as i32))),
-            ExpressionKind::Float(f) => Ok(ir::Expression::Direct(ir::Value::Float(f))),
-            ExpressionKind::Bool(b) => Ok(ir::Expression::Direct(ir::Value::Boolean(b))),
-            ExpressionKind::Var(v) => vars
+            ast::ExpressionKind::Int(i) => Ok(ir::Expression::Direct(ir::Value::Integer(i as i32))),
+            ast::ExpressionKind::Float(f) => Ok(ir::Expression::Direct(ir::Value::Float(f))),
+            ast::ExpressionKind::Bool(b) => Ok(ir::Expression::Direct(ir::Value::Boolean(b))),
+            ast::ExpressionKind::Var(v) => vars
                 .get(&v)
                 .copied()
                 .map(|v| ir::Expression::Direct(ir::Value::Variable(v)))
@@ -132,66 +151,78 @@ impl Lowerer {
                     variable: v,
                     span: expr.span,
                 }),
-            ExpressionKind::Unary { op, inner } => {
-                let float_mode = inner.type_context == Type::Float;
+            ast::ExpressionKind::Unary { op, inner } => {
+                let float_mode = inner.type_context == ast::Type::Float;
 
                 let arg = self.lower_expression(*inner, vars)?;
                 Ok(ir::Expression::UnaryOperation(Box::new(
                     ir::UnaryOperation {
                         kind: match op {
-                            UnaryOperation::Neg if float_mode => ir::UnaryOperationKind::NegFloat,
-                            UnaryOperation::Neg => ir::UnaryOperationKind::NegInt,
-                            UnaryOperation::Not => ir::UnaryOperationKind::Not,
+                            ast::UnaryOperation::Neg if float_mode => {
+                                ir::UnaryOperationKind::NegFloat
+                            }
+                            ast::UnaryOperation::Neg => ir::UnaryOperationKind::NegInt,
+                            ast::UnaryOperation::Not => ir::UnaryOperationKind::Not,
                         },
                         inner: arg,
                     },
                 )))
             }
-            ExpressionKind::Binary { op: kind, lhs, rhs } => {
-                let float_mode = lhs.type_context == Type::Float;
+            ast::ExpressionKind::Binary { op: kind, lhs, rhs } => {
+                let float_mode = lhs.type_context == ast::Type::Float;
 
                 let lhs = self.lower_expression(*lhs, vars)?;
                 let rhs = self.lower_expression(*rhs, vars)?;
                 Ok(ir::Expression::BinaryOperation(Box::new(
                     ir::BinaryOperation {
                         kind: match kind {
-                            BinaryOperation::Add if float_mode => ir::BinaryOperationKind::AddFloat,
-                            BinaryOperation::Sub if float_mode => ir::BinaryOperationKind::SubFloat,
-                            BinaryOperation::Mul if float_mode => ir::BinaryOperationKind::MulFloat,
-                            BinaryOperation::Div if float_mode => ir::BinaryOperationKind::DivFloat,
-                            BinaryOperation::Equals if float_mode => {
+                            ast::BinaryOperation::Add if float_mode => {
+                                ir::BinaryOperationKind::AddFloat
+                            }
+                            ast::BinaryOperation::Sub if float_mode => {
+                                ir::BinaryOperationKind::SubFloat
+                            }
+                            ast::BinaryOperation::Mul if float_mode => {
+                                ir::BinaryOperationKind::MulFloat
+                            }
+                            ast::BinaryOperation::Div if float_mode => {
+                                ir::BinaryOperationKind::DivFloat
+                            }
+                            ast::BinaryOperation::Equals if float_mode => {
                                 ir::BinaryOperationKind::EqualsFloat
                             }
-                            BinaryOperation::Less if float_mode => {
+                            ast::BinaryOperation::Less if float_mode => {
                                 ir::BinaryOperationKind::LessFloat
                             }
-                            BinaryOperation::LessEq if float_mode => {
+                            ast::BinaryOperation::LessEq if float_mode => {
                                 ir::BinaryOperationKind::LessEqFloat
                             }
-                            BinaryOperation::Greater if float_mode => {
+                            ast::BinaryOperation::Greater if float_mode => {
                                 ir::BinaryOperationKind::GreaterFloat
                             }
-                            BinaryOperation::GreaterEq if float_mode => {
+                            ast::BinaryOperation::GreaterEq if float_mode => {
                                 ir::BinaryOperationKind::GreaterEqFloat
                             }
-                            BinaryOperation::Add => ir::BinaryOperationKind::AddInt,
-                            BinaryOperation::Sub => ir::BinaryOperationKind::SubInt,
-                            BinaryOperation::Mul => ir::BinaryOperationKind::MulInt,
-                            BinaryOperation::Div => ir::BinaryOperationKind::DivInt,
-                            BinaryOperation::Equals => ir::BinaryOperationKind::EqualsInt,
-                            BinaryOperation::Less => ir::BinaryOperationKind::LessInt,
-                            BinaryOperation::LessEq => ir::BinaryOperationKind::LessEqInt,
-                            BinaryOperation::Greater => ir::BinaryOperationKind::GreaterInt,
-                            BinaryOperation::GreaterEq => ir::BinaryOperationKind::GreaterEqInt,
-                            BinaryOperation::And => ir::BinaryOperationKind::And,
-                            BinaryOperation::Or => ir::BinaryOperationKind::Or,
+                            ast::BinaryOperation::Add => ir::BinaryOperationKind::AddInt,
+                            ast::BinaryOperation::Sub => ir::BinaryOperationKind::SubInt,
+                            ast::BinaryOperation::Mul => ir::BinaryOperationKind::MulInt,
+                            ast::BinaryOperation::Div => ir::BinaryOperationKind::DivInt,
+                            ast::BinaryOperation::Equals => ir::BinaryOperationKind::EqualsInt,
+                            ast::BinaryOperation::Less => ir::BinaryOperationKind::LessInt,
+                            ast::BinaryOperation::LessEq => ir::BinaryOperationKind::LessEqInt,
+                            ast::BinaryOperation::Greater => ir::BinaryOperationKind::GreaterInt,
+                            ast::BinaryOperation::GreaterEq => {
+                                ir::BinaryOperationKind::GreaterEqInt
+                            }
+                            ast::BinaryOperation::And => ir::BinaryOperationKind::And,
+                            ast::BinaryOperation::Or => ir::BinaryOperationKind::Or,
                         },
                         lhs,
                         rhs,
                     },
                 )))
             }
-            ExpressionKind::LetIn { mut binds, body } => {
+            ast::ExpressionKind::LetIn { mut binds, body } => {
                 let mut extended_vars = vars.clone();
 
                 if binds.len() <= 1 {
@@ -215,8 +246,8 @@ impl Lowerer {
                     let fresh = self.fresh_variable();
                     extended_vars.insert(last_var, fresh);
 
-                    let rest = Expression {
-                        kind: ExpressionKind::LetIn { binds, body },
+                    let rest = ast::Expression {
+                        kind: ast::ExpressionKind::LetIn { binds, body },
                         span: expr.span,
                         type_context: expr.type_context,
                     };
@@ -229,8 +260,8 @@ impl Lowerer {
                     })))
                 }
             }
-            ExpressionKind::IfThenElse { condition, yes, no } => {
-                let float_mode = yes.type_context == Type::Float;
+            ast::ExpressionKind::IfThenElse { condition, yes, no } => {
+                let float_mode = yes.type_context == ast::Type::Float;
 
                 Ok(ir::Expression::Conditional(Box::new(ir::Conditional {
                     condition: self.lower_expression(*condition, vars)?,
@@ -239,13 +270,15 @@ impl Lowerer {
                     float_mode,
                 })))
             }
-            ExpressionKind::Call { function, args } => {
+            ast::ExpressionKind::Call { function, args } => {
                 // builtin: trace function
                 if function.as_str() == "trace" {
                     let function_name = match args[0].type_context {
-                        Type::Int => "__compli_trace_int",
-                        Type::Float => "__compli_trace_float",
-                        Type::Bool => "__compli_trace_bool",
+                        ast::Type::Int => "__compli_trace_int",
+                        ast::Type::Float => "__compli_trace_float",
+                        ast::Type::Bool => "__compli_trace_bool",
+                        // TODO: tracing record types
+                        ast::Type::Record(_) => todo!(),
                     }
                     .to_string();
 
@@ -268,6 +301,19 @@ impl Lowerer {
                     args: lowered_args,
                 })
             }
+        }
+    }
+
+    fn lower_type(&self, typ: ast::Type) -> ir::Type {
+        match typ {
+            ast::Type::Int => ir::Type::Int,
+            ast::Type::Float => ir::Type::Float,
+            ast::Type::Bool => ir::Type::Bool,
+            ast::Type::Record(name) => self
+                .record_definitions
+                .get(&name)
+                .expect("ensured by type checker")
+                .clone(),
         }
     }
 

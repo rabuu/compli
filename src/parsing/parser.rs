@@ -8,16 +8,17 @@ use chumsky::prelude::*;
 use super::lexer::Token;
 use super::ParseErr;
 
-use crate::{ast, Span, Type};
+use crate::{ast, Span};
 
 /// Parse tokens into an AST
 pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Token>> + Clone {
     let ident = select! { Token::Ident(ident) => ident }.labelled("identifier");
 
     let typ = choice((
-        just(Token::KwInt).to(Type::Int),
-        just(Token::KwBool).to(Type::Bool),
-        just(Token::KwFloat).to(Type::Float),
+        just(Token::KwInt).to(ast::Type::Int),
+        just(Token::KwBool).to(ast::Type::Bool),
+        just(Token::KwFloat).to(ast::Type::Float),
+        ident.map(ast::Type::Record),
     ));
 
     let expr = recursive(|expr| {
