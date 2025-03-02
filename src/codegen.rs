@@ -133,8 +133,12 @@ impl<'ctx> Codegen<'ctx> {
             ir::Type::Int => self.context.i32_type().as_basic_type_enum(),
             ir::Type::Float => self.context.f32_type().as_basic_type_enum(),
             ir::Type::Bool => self.context.bool_type().as_basic_type_enum(),
-            // TODO: compile record types
-            ir::Type::Record(_) => todo!(),
+            ir::Type::Record(fields) => {
+                let fields: Vec<_> = fields.iter().map(|typ| self.compile_type(typ)).collect();
+                self.context
+                    .struct_type(&fields, false)
+                    .as_basic_type_enum()
+            }
         }
     }
 

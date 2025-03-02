@@ -134,6 +134,7 @@ impl Program {
         print_tree(&self.entry)?;
         println!();
         for function in &self.functions {
+            print!("FUNC ");
             print_tree(function)?;
         }
 
