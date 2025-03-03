@@ -31,6 +31,20 @@ float __compli_int_to_float(int32_t x) {
   return (float) x;
 }
 
+// square root approximation to avoid math.h dependency
+float __compli_sqrt(float x) {
+  const float MINDIFF = 2.25e-308;
+
+  float root=x/3, last, diff=1;
+  if (x <= 0) return 0;
+  do {
+    last = root;
+    root = (root + x / root) / 2;
+    diff = root - last;
+  } while (diff > MINDIFF || diff < -MINDIFF);
+  return root;
+}
+
 int main(void) {
   printf("%d\n", __compli_entry());
   return 0;

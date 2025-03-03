@@ -5,7 +5,7 @@
 use crate::ir::{FunctionPrototype, Type};
 use crate::Variable;
 
-pub fn all_builtins() -> [FunctionPrototype; 6] {
+pub fn all_builtins() -> [FunctionPrototype; 7] {
     [
         FunctionPrototype {
             name: String::from("__compli_trace_int"),
@@ -35,6 +35,11 @@ pub fn all_builtins() -> [FunctionPrototype; 6] {
         FunctionPrototype {
             name: String::from("__compli_int_to_float"),
             parameters: vec![(Variable::DONT_CARE, Type::Int)],
+            return_type: Type::Float,
+        },
+        FunctionPrototype {
+            name: String::from("__compli_sqrt"),
+            parameters: vec![(Variable::DONT_CARE, Type::Float)],
             return_type: Type::Float,
         },
     ]

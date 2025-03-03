@@ -302,6 +302,19 @@ impl Lowerer {
                     });
                 }
 
+                // builtin: sqrt function
+                if function.as_str() == "sqrt" {
+                    let function_name = String::from("__compli_sqrt");
+
+                    let mut args = args;
+                    let lowered_arg = self.lower_expression(args.swap_remove(0), vars)?;
+
+                    return Ok(ir::Expression::FunctionCall {
+                        function_name,
+                        args: vec![lowered_arg],
+                    });
+                }
+
                 let mut lowered_args = Vec::with_capacity(args.len());
                 for arg in args {
                     lowered_args.push(self.lower_expression(arg, vars)?);

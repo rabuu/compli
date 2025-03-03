@@ -241,7 +241,8 @@ impl TypeChecker {
     ) -> Result<ast::Function<ast::Type>> {
         let name = function.name.as_str();
 
-        const ILLEGAL_NAMES: [&str; 3] = ["trace", "cast_int", "cast_float"];
+        // forbid builtin names
+        const ILLEGAL_NAMES: [&str; 4] = ["trace", "cast_int", "cast_float", "sqrt"];
         if ILLEGAL_NAMES.contains(&name) || name.starts_with("__compli") {
             return Err(TypeCheckError::IllegalFunctionName {
                 name: function.name,
@@ -574,6 +575,38 @@ impl TypeChecker {
                         },
                         span: expr.span,
                         type_context: target,
+                    });
+                }
+
+                // builtin: sqrt function
+                if function.as_str() == "sqrt" {
+                    if args.len() != 1 {
+                        return Err(TypeCheckError::WrongNumberOfArguments {
+                            expected: 1,
+                            actual: args.len(),
+                            span: expr.span,
+                        });
+                    }
+
+                    let mut args = args;
+                    let typed_arg = self.infer_expr(args.swap_remove(0), vars)?;
+                    let typ = &typed_arg.type_context;
+
+                    if *typ != ast::Type::Float {
+                        return Err(TypeCheckError::UnexpectedType {
+                            expected: ast::Type::Float,
+                            actual: typ.clone(),
+                            span: expr.span,
+                        });
+                    }
+
+                    return Ok(ast::Expression {
+                        kind: ast::ExpressionKind::Call {
+                            function,
+                            args: vec![typed_arg],
+                        },
+                        span: expr.span,
+                        type_context: ast::Type::Float,
                     });
                 }
 
