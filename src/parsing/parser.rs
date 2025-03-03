@@ -261,7 +261,8 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
                 .then_ignore(just(Token::Colon))
                 .then(typ)
                 .separated_by(just(Token::Comma))
-                .allow_trailing(),
+                .allow_trailing()
+                .at_least(1),
         )
         .map(|((name, name_span), fields)| ast::Record {
             name,
