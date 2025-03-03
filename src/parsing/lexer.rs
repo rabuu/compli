@@ -50,6 +50,7 @@ pub enum Token {
 
     Comma,
     Colon,
+    Dot,
 }
 
 impl fmt::Display for Token {
@@ -80,6 +81,7 @@ impl fmt::Display for Token {
             Token::ParenClose => write!(f, ")"),
             Token::Comma => write!(f, ","),
             Token::Colon => write!(f, ":"),
+            Token::Dot => write!(f, "."),
             Token::Bang => write!(f, "!"),
             Token::KwIf => write!(f, "if"),
             Token::KwThen => write!(f, "then"),
@@ -105,7 +107,7 @@ pub fn lex() -> impl Parser<char, Vec<(Token, Span)>, Error = ParseErr<char>> {
         just(">=").to(Token::GreaterEq),
         just("&&").to(Token::And),
         just("||").to(Token::Or),
-        one_of("()=<>+-*/,:!").map(|symb: char| match symb {
+        one_of("()=<>+-*/,:.!").map(|symb: char| match symb {
             '(' => Token::ParenOpen,
             ')' => Token::ParenClose,
             '=' => Token::Assign,
@@ -117,6 +119,7 @@ pub fn lex() -> impl Parser<char, Vec<(Token, Span)>, Error = ParseErr<char>> {
             '/' => Token::Slash,
             ',' => Token::Comma,
             ':' => Token::Colon,
+            '.' => Token::Dot,
             '!' => Token::Bang,
             _ => unreachable!(),
         }),
