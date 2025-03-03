@@ -36,7 +36,7 @@ compli INPUT-FILE --mode ir
 ### Example
 ```sh
 compli main.compli
-gcc -o main rts/rt.c main.o
+gcc -o main runtime.c main.o
 ```
 
 ## Language Tour
