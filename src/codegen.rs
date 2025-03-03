@@ -366,6 +366,7 @@ impl<'ctx> Codegen<'ctx> {
                 }
                 None => Err(CodegenError::UnknownFunction(function_name.clone())),
             },
+            ir::Expression::RecordConstructor { record_fields, args } => todo!(),
         }
     }
 

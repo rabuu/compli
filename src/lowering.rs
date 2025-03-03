@@ -48,7 +48,7 @@ pub fn lower(ast::TypedProgram { records, functions }: ast::TypedProgram) -> Res
 #[derive(Debug)]
 struct Lowerer {
     fresh_variable: Variable,
-    record_definitions: HashMap<String, ir::Type>,
+    record_definitions: HashMap<String, Vec<ir::Type>>,
 }
 
 impl Lowerer {
@@ -64,7 +64,7 @@ impl Lowerer {
                 .map(|(_, typ)| lowerer.lower_type(typ))
                 .collect();
 
-            lowerer.record_definitions.insert(name, ir::Type::Record(lowered_fields));
+            lowerer.record_definitions.insert(name, lowered_fields);
         }
 
         lowerer
@@ -296,6 +296,13 @@ impl Lowerer {
                     lowered_args.push(self.lower_expression(arg, vars)?);
                 }
 
+                if let Some(fields) = self.record_definitions.get(&function) {
+                    return Ok(ir::Expression::RecordConstructor {
+                        record_fields: fields.clone(),
+                        args: lowered_args,
+                    });
+                }
+
                 Ok(ir::Expression::FunctionCall {
                     function_name: function,
                     args: lowered_args,
@@ -309,11 +316,12 @@ impl Lowerer {
             ast::Type::Int => ir::Type::Int,
             ast::Type::Float => ir::Type::Float,
             ast::Type::Bool => ir::Type::Bool,
-            ast::Type::Record(name) => self
-                .record_definitions
-                .get(&name)
-                .expect("ensured by type checker")
-                .clone(),
+            ast::Type::Record(name) => ir::Type::Record(
+                self.record_definitions
+                    .get(&name)
+                    .expect("ensured by type checker")
+                    .clone(),
+            ),
         }
     }
 

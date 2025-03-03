@@ -56,6 +56,10 @@ pub enum Expression {
         function_name: String,
         args: Vec<Expression>,
     },
+    RecordConstructor {
+        record_fields: Vec<Type>,
+        args: Vec<Expression>,
+    },
     LocalBinding(Box<LocalBinding>),
     BinaryOperation(Box<BinaryOperation>),
     UnaryOperation(Box<UnaryOperation>),
@@ -244,6 +248,9 @@ impl TreeItem for Expression {
             Expression::FunctionCall { function_name, .. } => {
                 write!(f, "{}", style.paint(format!("CALL {function_name}")))
             }
+            Expression::RecordConstructor { record_fields, .. } => {
+                write!(f, "{}", style.paint(format!("CONSTRUCTOR {}", Type::Record(record_fields.clone()))))
+            }
             Expression::LocalBinding(x) => write!(f, "{}", style.paint(format!("LET {}", x.var))),
             Expression::BinaryOperation(x) => write!(f, "{}", style.paint(x.kind)),
             Expression::UnaryOperation(x) => write!(f, "{}", style.paint(x.kind)),
@@ -255,6 +262,7 @@ impl TreeItem for Expression {
         match self {
             Expression::Direct(_) => Cow::from(vec![]),
             Expression::FunctionCall { args, .. } => Cow::from(args.clone()),
+            Expression::RecordConstructor { args, .. } => Cow::from(args.clone()),
             Expression::LocalBinding(x) => Cow::from(vec![x.bind.clone(), x.body.clone()]),
             Expression::BinaryOperation(x) => Cow::from(vec![x.lhs.clone(), x.rhs.clone()]),
             Expression::UnaryOperation(x) => Cow::from(vec![x.inner.clone()]),

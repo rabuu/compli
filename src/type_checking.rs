@@ -138,10 +138,12 @@ pub fn type_check(program: ast::UntypedProgram) -> Result<ast::TypedProgram> {
     })
 }
 
-fn check_record_definitions(records: &[ast::Record]) -> Result<HashSet<ast::Ident>> {
-    let mut defined_records = HashSet::new();
+fn check_record_definitions(
+    records: &[ast::Record],
+) -> Result<HashMap<ast::Ident, Vec<ast::Type>>> {
+    let mut defined_records = HashMap::new();
     for record in records {
-        if defined_records.contains(&record.name) {
+        if defined_records.contains_key(&record.name) {
             return Err(TypeCheckError::MultipleRecordDefinitions {
                 name: record.name.clone(),
                 span: record.name_span,
@@ -150,7 +152,7 @@ fn check_record_definitions(records: &[ast::Record]) -> Result<HashSet<ast::Iden
 
         for (field_name, field_type) in &record.fields {
             if let ast::Type::Record(name) = field_type {
-                if !defined_records.contains(name) {
+                if !defined_records.contains_key(name) {
                     return Err(TypeCheckError::UnknownTypeInRecordDefinition {
                         field_name: field_name.clone(),
                         type_name: name.clone(),
@@ -160,7 +162,13 @@ fn check_record_definitions(records: &[ast::Record]) -> Result<HashSet<ast::Iden
             }
         }
 
-        defined_records.insert(record.name.clone());
+        let field_types = record
+            .fields
+            .clone()
+            .into_iter()
+            .map(|(_, typ)| typ)
+            .collect();
+        defined_records.insert(record.name.clone(), field_types);
     }
 
     Ok(defined_records)
@@ -173,13 +181,13 @@ struct TypeChecker {
     prototypes: HashMap<ast::Ident, (Vec<ast::Type>, ast::Type)>,
     defined_functions: HashSet<ast::Ident>,
 
-    defined_records: HashSet<ast::Ident>,
+    defined_records: HashMap<ast::Ident, Vec<ast::Type>>,
 }
 
 impl TypeChecker {
     fn new(
         prototypes: HashMap<ast::Ident, (Vec<ast::Type>, ast::Type)>,
-        defined_records: HashSet<ast::Ident>,
+        defined_records: HashMap<ast::Ident, Vec<ast::Type>>,
     ) -> Self {
         Self {
             prototypes,
@@ -202,7 +210,7 @@ impl TypeChecker {
             });
         }
 
-        if self.defined_records.contains(&function.name) {
+        if self.defined_records.contains_key(&function.name) {
             return Err(TypeCheckError::FunctionSameNameAsRecord {
                 name: function.name,
                 span: function.name_span,
@@ -218,7 +226,7 @@ impl TypeChecker {
 
         for (param_name, param_type) in &function.params {
             if let ast::Type::Record(name) = param_type {
-                if !self.defined_records.contains(name) {
+                if !self.defined_records.contains_key(name) {
                     return Err(TypeCheckError::UnknownTypeInFunctionDefinition {
                         param_name: param_name.clone(),
                         type_name: name.clone(),
@@ -451,13 +459,16 @@ impl TypeChecker {
                     });
                 }
 
-                let (params, ret) =
-                    self.prototypes
-                        .get(&function)
-                        .ok_or_else(|| TypeCheckError::NotBound {
-                            name: function.clone(),
-                            span: expr.span,
-                        })?;
+                let (params, return_type) =
+                    match self.defined_records.get(&function) {
+                        Some(fields) => &(fields.clone(), ast::Type::Record(function.clone())),
+                        None => self.prototypes.get(&function).ok_or_else(|| {
+                            TypeCheckError::NotBound {
+                                name: function.clone(),
+                                span: expr.span,
+                            }
+                        })?,
+                    };
 
                 if args.len() != params.len() {
                     return Err(TypeCheckError::WrongNumberOfArguments {
@@ -480,7 +491,7 @@ impl TypeChecker {
                         args: typed_args,
                     },
                     span: expr.span,
-                    type_context: ret.clone(),
+                    type_context: return_type.clone(),
                 })
             }
         }
