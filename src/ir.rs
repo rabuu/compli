@@ -82,7 +82,7 @@ pub enum Expression {
         condition: Box<Expression>,
         yes: Box<Expression>,
         no: Box<Expression>,
-        float_mode: bool,
+        typ: Type,
     },
 }
 

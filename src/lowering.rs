@@ -238,13 +238,13 @@ impl Lowerer {
                 }
             }
             ast::ExpressionKind::IfThenElse { condition, yes, no } => {
-                let float_mode = yes.type_context == ast::Type::Float;
+                let typ = self.lower_type(yes.type_context.clone());
 
                 Ok(ir::Expression::Conditional {
                     condition: Box::new(self.lower_expression(*condition, vars)?),
                     yes: Box::new(self.lower_expression(*yes, vars)?),
                     no: Box::new(self.lower_expression(*no, vars)?),
-                    float_mode,
+                    typ,
                 })
             }
             ast::ExpressionKind::Call { function, args } => {

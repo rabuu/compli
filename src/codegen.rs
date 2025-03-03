@@ -312,7 +312,7 @@ impl<'ctx> Codegen<'ctx> {
                 condition,
                 yes,
                 no,
-                float_mode,
+                typ,
             } => {
                 let condition = self.compile_expression(condition, bindings)?;
 
@@ -342,12 +342,7 @@ impl<'ctx> Codegen<'ctx> {
 
                 self.builder.position_at_end(cont_bb);
 
-                let phi_type = if *float_mode {
-                    self.context.f32_type().as_basic_type_enum()
-                } else {
-                    self.context.i32_type().as_basic_type_enum()
-                };
-
+                let phi_type = self.compile_type(typ);
                 let phi = self.builder.build_phi(phi_type, "cond-phi")?;
                 phi.add_incoming(&[
                     (&then_value, updated_then_bb),
