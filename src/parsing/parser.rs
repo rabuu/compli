@@ -53,19 +53,15 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
             .then(
                 just(Token::Dot)
                     .ignore_then(ident.map_with_span(|e, span: Span| (e, span)))
-                    .or_not(),
+                    .repeated()
             )
-            .map(|(expr, field)| {
-                if let Some((field, field_span)) = field {
-                    let span = Span::new(expr.span.start, field_span.end);
-                    let e = ast::ExpressionKind::RecordSelector {
-                        expr: Box::new(expr),
-                        field,
-                    };
-                    ast::Expression::new(e, span, ast::NoContext)
-                } else {
-                    expr
-                }
+            .foldl(|expr, (field, field_span)| {
+                let span = Span::new(expr.span.start, field_span.end);
+                let e = ast::ExpressionKind::RecordSelector {
+                    expr: Box::new(expr),
+                    field,
+                };
+                ast::Expression::new(e, span, ast::NoContext)
             });
 
         let unary = just(Token::Minus)
