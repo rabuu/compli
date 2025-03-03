@@ -165,51 +165,36 @@ impl Lowerer {
                 })
             }
             ast::ExpressionKind::Binary { op: kind, lhs, rhs } => {
-                let float_mode = lhs.type_context == ast::Type::Float;
+                let f = lhs.type_context == ast::Type::Float;
 
                 let lhs = self.lower_expression(*lhs, vars)?;
                 let rhs = self.lower_expression(*rhs, vars)?;
+
+                let kind = match kind {
+                    ast::BinaryOperation::Add if f => ir::BinaryOperationKind::AddFloat,
+                    ast::BinaryOperation::Sub if f => ir::BinaryOperationKind::SubFloat,
+                    ast::BinaryOperation::Mul if f => ir::BinaryOperationKind::MulFloat,
+                    ast::BinaryOperation::Div if f => ir::BinaryOperationKind::DivFloat,
+                    ast::BinaryOperation::Equals if f => ir::BinaryOperationKind::EqualsFloat,
+                    ast::BinaryOperation::Less if f => ir::BinaryOperationKind::LessFloat,
+                    ast::BinaryOperation::LessEq if f => ir::BinaryOperationKind::LessEqFloat,
+                    ast::BinaryOperation::Greater if f => ir::BinaryOperationKind::GreaterFloat,
+                    ast::BinaryOperation::GreaterEq if f => ir::BinaryOperationKind::GreaterEqFloat,
+                    ast::BinaryOperation::Add => ir::BinaryOperationKind::AddInt,
+                    ast::BinaryOperation::Sub => ir::BinaryOperationKind::SubInt,
+                    ast::BinaryOperation::Mul => ir::BinaryOperationKind::MulInt,
+                    ast::BinaryOperation::Div => ir::BinaryOperationKind::DivInt,
+                    ast::BinaryOperation::Equals => ir::BinaryOperationKind::EqualsInt,
+                    ast::BinaryOperation::Less => ir::BinaryOperationKind::LessInt,
+                    ast::BinaryOperation::LessEq => ir::BinaryOperationKind::LessEqInt,
+                    ast::BinaryOperation::Greater => ir::BinaryOperationKind::GreaterInt,
+                    ast::BinaryOperation::GreaterEq => ir::BinaryOperationKind::GreaterEqInt,
+                    ast::BinaryOperation::And => ir::BinaryOperationKind::And,
+                    ast::BinaryOperation::Or => ir::BinaryOperationKind::Or,
+                };
+
                 Ok(ir::Expression::BinaryOperation {
-                    kind: match kind {
-                        ast::BinaryOperation::Add if float_mode => {
-                            ir::BinaryOperationKind::AddFloat
-                        }
-                        ast::BinaryOperation::Sub if float_mode => {
-                            ir::BinaryOperationKind::SubFloat
-                        }
-                        ast::BinaryOperation::Mul if float_mode => {
-                            ir::BinaryOperationKind::MulFloat
-                        }
-                        ast::BinaryOperation::Div if float_mode => {
-                            ir::BinaryOperationKind::DivFloat
-                        }
-                        ast::BinaryOperation::Equals if float_mode => {
-                            ir::BinaryOperationKind::EqualsFloat
-                        }
-                        ast::BinaryOperation::Less if float_mode => {
-                            ir::BinaryOperationKind::LessFloat
-                        }
-                        ast::BinaryOperation::LessEq if float_mode => {
-                            ir::BinaryOperationKind::LessEqFloat
-                        }
-                        ast::BinaryOperation::Greater if float_mode => {
-                            ir::BinaryOperationKind::GreaterFloat
-                        }
-                        ast::BinaryOperation::GreaterEq if float_mode => {
-                            ir::BinaryOperationKind::GreaterEqFloat
-                        }
-                        ast::BinaryOperation::Add => ir::BinaryOperationKind::AddInt,
-                        ast::BinaryOperation::Sub => ir::BinaryOperationKind::SubInt,
-                        ast::BinaryOperation::Mul => ir::BinaryOperationKind::MulInt,
-                        ast::BinaryOperation::Div => ir::BinaryOperationKind::DivInt,
-                        ast::BinaryOperation::Equals => ir::BinaryOperationKind::EqualsInt,
-                        ast::BinaryOperation::Less => ir::BinaryOperationKind::LessInt,
-                        ast::BinaryOperation::LessEq => ir::BinaryOperationKind::LessEqInt,
-                        ast::BinaryOperation::Greater => ir::BinaryOperationKind::GreaterInt,
-                        ast::BinaryOperation::GreaterEq => ir::BinaryOperationKind::GreaterEqInt,
-                        ast::BinaryOperation::And => ir::BinaryOperationKind::And,
-                        ast::BinaryOperation::Or => ir::BinaryOperationKind::Or,
-                    },
+                    kind,
                     lhs: Box::new(lhs),
                     rhs: Box::new(rhs),
                 })
