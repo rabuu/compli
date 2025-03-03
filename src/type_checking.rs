@@ -522,11 +522,13 @@ impl TypeChecker {
 
                     match typ {
                         ast::Type::Float | ast::Type::Bool => (),
-                        _ => return Err(TypeCheckError::ImpossibleCast {
-                            typ,
-                            target,
-                            span: expr.span,
-                        })
+                        _ => {
+                            return Err(TypeCheckError::ImpossibleCast {
+                                typ,
+                                target,
+                                span: expr.span,
+                            })
+                        }
                     }
 
                     return Ok(ast::Expression {
@@ -556,11 +558,13 @@ impl TypeChecker {
 
                     match typ {
                         ast::Type::Int => (),
-                        _ => return Err(TypeCheckError::ImpossibleCast {
-                            typ,
-                            target,
-                            span: expr.span,
-                        })
+                        _ => {
+                            return Err(TypeCheckError::ImpossibleCast {
+                                typ,
+                                target,
+                                span: expr.span,
+                            })
+                        }
                     }
 
                     return Ok(ast::Expression {
