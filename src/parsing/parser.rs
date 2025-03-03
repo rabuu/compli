@@ -53,7 +53,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
             .then(
                 just(Token::Dot)
                     .ignore_then(ident.map_with_span(|e, span: Span| (e, span)))
-                    .repeated()
+                    .repeated(),
             )
             .foldl(|expr, (field, field_span)| {
                 let span = Span::new(expr.span.start, field_span.end);

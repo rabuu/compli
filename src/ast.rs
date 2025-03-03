@@ -327,7 +327,11 @@ impl<C: TypeContext> TreeItem for Expression<C> {
                 )
             }
             ExpressionKind::RecordSelector { field, .. } => {
-                write!(f, "{}", style.paint(format!("SELECT {field} {}", self.type_context)))
+                write!(
+                    f,
+                    "{}",
+                    style.paint(format!("SELECT {field} {}", self.type_context))
+                )
             }
         }
     }

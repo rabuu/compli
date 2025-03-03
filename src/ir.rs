@@ -244,16 +244,15 @@ impl TreeItem for Expression {
                 write!(
                     f,
                     "{}",
-                    style.paint(format!(
-                        "CONSTRUCT {}",
-                        Type::Record(record_fields.clone())
-                    ))
+                    style.paint(format!("CONSTRUCT {}", Type::Record(record_fields.clone())))
                 )
             }
             Expression::RecordSelector { index, .. } => {
                 write!(f, "{}", style.paint(format!("SELECT {index}")))
             }
-            Expression::LocalBinding { var, .. } => write!(f, "{}", style.paint(format!("LET {var}"))),
+            Expression::LocalBinding { var, .. } => {
+                write!(f, "{}", style.paint(format!("LET {var}")))
+            }
             Expression::BinaryOperation { kind, .. } => write!(f, "{}", style.paint(kind)),
             Expression::UnaryOperation { kind, .. } => write!(f, "{}", style.paint(kind)),
             Expression::Conditional { .. } => write!(f, "{}", style.paint("COND")),
@@ -266,12 +265,16 @@ impl TreeItem for Expression {
             Expression::FunctionCall { args, .. } => Cow::from(args.clone()),
             Expression::RecordConstructor { args, .. } => Cow::from(args.clone()),
             Expression::RecordSelector { record, .. } => Cow::from(vec![*record.clone()]),
-            Expression::LocalBinding { bind, body, .. } => Cow::from(vec![*bind.clone(), *body.clone()]),
-            Expression::BinaryOperation { lhs, rhs, .. } => Cow::from(vec![*lhs.clone(), *rhs.clone()]),
-            Expression::UnaryOperation { inner, .. } => Cow::from(vec![*inner.clone()]),
-            Expression::Conditional { condition, yes, no, .. } => {
-                Cow::from(vec![*condition.clone(), *yes.clone(), *no.clone()])
+            Expression::LocalBinding { bind, body, .. } => {
+                Cow::from(vec![*bind.clone(), *body.clone()])
             }
+            Expression::BinaryOperation { lhs, rhs, .. } => {
+                Cow::from(vec![*lhs.clone(), *rhs.clone()])
+            }
+            Expression::UnaryOperation { inner, .. } => Cow::from(vec![*inner.clone()]),
+            Expression::Conditional {
+                condition, yes, no, ..
+            } => Cow::from(vec![*condition.clone(), *yes.clone(), *no.clone()]),
         }
     }
 }

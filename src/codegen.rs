@@ -308,7 +308,12 @@ impl<'ctx> Codegen<'ctx> {
                         .as_basic_value_enum()),
                 }
             }
-            ir::Expression::Conditional { condition, yes, no, float_mode } => {
+            ir::Expression::Conditional {
+                condition,
+                yes,
+                no,
+                float_mode,
+            } => {
                 let condition = self.compile_expression(condition, bindings)?;
 
                 let then_bb = self.context.append_basic_block(self.function, "then");
@@ -390,8 +395,12 @@ impl<'ctx> Codegen<'ctx> {
                 Ok(struct_value.as_basic_value_enum())
             }
             ir::Expression::RecordSelector { record, index } => {
-                let record = self.compile_expression(record, bindings)?.into_struct_value();
-                Ok(self.builder.build_extract_value(record, *index as u32, "select")?)
+                let record = self
+                    .compile_expression(record, bindings)?
+                    .into_struct_value();
+                Ok(self
+                    .builder
+                    .build_extract_value(record, *index as u32, "select")?)
             }
         }
     }
