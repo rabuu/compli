@@ -150,13 +150,13 @@ impl<'ctx> Codegen<'ctx> {
         match expression {
             ir::Expression::Direct(value) => Ok(self.compile_value(value, bindings)),
             ir::Expression::LocalBinding { var, bind, body } => {
-                let bind = self.compile_expression(&bind, bindings)?;
+                let bind = self.compile_expression(bind, bindings)?;
                 let mut extended_bindings = bindings.clone();
                 extended_bindings.insert(*var, bind);
-                self.compile_expression(&body, &extended_bindings)
+                self.compile_expression(body, &extended_bindings)
             }
             ir::Expression::UnaryOperation { kind, inner } => {
-                let arg = self.compile_expression(&inner, bindings)?;
+                let arg = self.compile_expression(inner, bindings)?;
                 match kind {
                     ir::UnaryOperationKind::NegInt => Ok(self
                         .builder
@@ -173,8 +173,8 @@ impl<'ctx> Codegen<'ctx> {
                 }
             }
             ir::Expression::BinaryOperation { kind, lhs, rhs } => {
-                let lhs = self.compile_expression(&lhs, bindings)?;
-                let rhs = self.compile_expression(&rhs, bindings)?;
+                let lhs = self.compile_expression(lhs, bindings)?;
+                let rhs = self.compile_expression(rhs, bindings)?;
                 match kind {
                     ir::BinaryOperationKind::AddInt => Ok(self
                         .builder
@@ -309,7 +309,7 @@ impl<'ctx> Codegen<'ctx> {
                 }
             }
             ir::Expression::Conditional { condition, yes, no, float_mode } => {
-                let condition = self.compile_expression(&condition, bindings)?;
+                let condition = self.compile_expression(condition, bindings)?;
 
                 let then_bb = self.context.append_basic_block(self.function, "then");
                 let else_bb = self.context.append_basic_block(self.function, "else");
@@ -322,14 +322,14 @@ impl<'ctx> Codegen<'ctx> {
                 )?;
 
                 self.builder.position_at_end(then_bb);
-                let then_value = self.compile_expression(&yes, bindings)?;
+                let then_value = self.compile_expression(yes, bindings)?;
                 self.builder.build_unconditional_branch(cont_bb)?;
 
                 // NOTE: Important! Update bb for phi merge because the expression may change it
                 let updated_then_bb = self.builder.get_insert_block().unwrap();
 
                 self.builder.position_at_end(else_bb);
-                let else_value = self.compile_expression(&no, bindings)?;
+                let else_value = self.compile_expression(no, bindings)?;
                 self.builder.build_unconditional_branch(cont_bb)?;
 
                 // NOTE: Important! Update bb for phi merge because the expression may change it

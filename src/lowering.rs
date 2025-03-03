@@ -310,7 +310,7 @@ impl Lowerer {
                     .expect("ensured by type checker");
 
                 let index = fields
-                    .into_iter()
+                    .iter()
                     .enumerate()
                     .find_map(|(i, (field_name, _))| (*field_name == field).then_some(i))
                     .expect("ensured by type checker");
