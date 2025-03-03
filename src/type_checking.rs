@@ -56,12 +56,41 @@ pub enum TypeCheckError {
         span: Span,
     },
 
+    #[error("Parameter `{param_name}` has unknown type `{type_name}`")]
+    UnknownTypeInFunctionDefinition {
+        param_name: ast::Ident,
+        type_name: ast::Ident,
+
+        #[label("in this definition")]
+        span: Span,
+    },
+
     #[error("Expected {expected} arguments but got {actual}")]
     WrongNumberOfArguments {
         expected: usize,
         actual: usize,
 
         #[label("this function call")]
+        span: Span,
+    },
+
+    #[error("There are multiple record definitions with the name `{name}`")]
+    MultipleRecordDefinitions {
+        name: ast::Ident,
+
+        #[label("second definition")]
+        span: Span,
+    },
+
+    #[error("Record field `{field_name}` has unknown type `{type_name}`")]
+    #[diagnostic(help(
+        "A record must be defined before it can be used in another record definition"
+    ))]
+    UnknownTypeInRecordDefinition {
+        field_name: ast::Ident,
+        type_name: ast::Ident,
+
+        #[label("in this definition")]
         span: Span,
     },
 }
@@ -85,7 +114,9 @@ pub fn type_check(program: ast::UntypedProgram) -> Result<ast::TypedProgram> {
         })
         .collect();
 
-    let mut checker = TypeChecker::new(prototypes);
+    let defined_records = check_record_definitions(&program.records)?;
+
+    let mut checker = TypeChecker::new(prototypes, defined_records);
 
     let mut typed_functions = Vec::with_capacity(program.functions.len());
     for function in program.functions {
@@ -98,19 +129,53 @@ pub fn type_check(program: ast::UntypedProgram) -> Result<ast::TypedProgram> {
     })
 }
 
+fn check_record_definitions(records: &[ast::Record]) -> Result<HashSet<ast::Ident>> {
+    let mut defined_records = HashSet::new();
+    for record in records {
+        if defined_records.contains(&record.name) {
+            return Err(TypeCheckError::MultipleRecordDefinitions {
+                name: record.name.clone(),
+                span: record.name_span,
+            });
+        }
+
+        for (field_name, field_type) in &record.fields {
+            if let ast::Type::Record(name) = field_type {
+                if !defined_records.contains(name) {
+                    return Err(TypeCheckError::UnknownTypeInRecordDefinition {
+                        field_name: field_name.clone(),
+                        type_name: name.clone(),
+                        span: record.name_span,
+                    });
+                }
+            }
+        }
+
+        defined_records.insert(record.name.clone());
+    }
+
+    Ok(defined_records)
+}
+
 /// The main state during type checking
 ///
 /// This state keeps track of function prototypes and which functions were already checked.
 struct TypeChecker {
     prototypes: HashMap<ast::Ident, (Vec<ast::Type>, ast::Type)>,
-    already_defined: HashSet<ast::Ident>,
+    defined_functions: HashSet<ast::Ident>,
+
+    defined_records: HashSet<ast::Ident>,
 }
 
 impl TypeChecker {
-    fn new(prototypes: HashMap<ast::Ident, (Vec<ast::Type>, ast::Type)>) -> Self {
+    fn new(
+        prototypes: HashMap<ast::Ident, (Vec<ast::Type>, ast::Type)>,
+        defined_records: HashSet<ast::Ident>,
+    ) -> Self {
         Self {
             prototypes,
-            already_defined: HashSet::new(),
+            defined_functions: HashSet::new(),
+            defined_records,
         }
     }
 
@@ -128,11 +193,23 @@ impl TypeChecker {
             });
         }
 
-        if !self.already_defined.insert(function.name.clone()) {
+        if !self.defined_functions.insert(function.name.clone()) {
             return Err(TypeCheckError::MultipleFunctionDefinitions {
                 name: function.name,
                 span: function.name_span,
             });
+        }
+
+        for (param_name, param_type) in &function.params {
+            if let ast::Type::Record(name) = param_type {
+                if !self.defined_records.contains(name) {
+                    return Err(TypeCheckError::UnknownTypeInFunctionDefinition {
+                        param_name: param_name.clone(),
+                        type_name: name.clone(),
+                        span: function.name_span,
+                    });
+                }
+            }
         }
 
         let vars = function.params.iter().cloned().collect();
@@ -290,7 +367,6 @@ impl TypeChecker {
 
                     extended_vars.insert(var.clone(), typed_bind.type_context.clone());
                     typed_binds.push((var, annotation, typed_bind));
-
                 }
 
                 let typed_body = self.infer_expr(*body, &extended_vars)?;
@@ -316,7 +392,11 @@ impl TypeChecker {
 
                 let typed_yes = self.infer_expr(*yes, vars)?;
                 let typed_no = self.infer_expr(*no, vars)?;
-                expect_type(&typed_yes.type_context, &typed_no.type_context, typed_no.span)?;
+                expect_type(
+                    &typed_yes.type_context,
+                    &typed_no.type_context,
+                    typed_no.span,
+                )?;
                 let typ = typed_yes.type_context.clone();
 
                 Ok(ast::Expression {
