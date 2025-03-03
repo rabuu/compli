@@ -7,59 +7,35 @@ use crate::Variable;
 
 pub fn all_builtins() -> [FunctionPrototype; 6] {
     [
-        compli_trace_int(),
-        compli_trace_float(),
-        compli_trace_bool(),
-        compli_bool_to_int(),
-        compli_float_to_int(),
-        compli_int_to_float(),
+        FunctionPrototype {
+            name: String::from("__compli_trace_int"),
+            parameters: vec![(Variable::DONT_CARE, Type::Int)],
+            return_type: Type::Int,
+        },
+        FunctionPrototype {
+            name: String::from("__compli_trace_float"),
+            parameters: vec![(Variable::DONT_CARE, Type::Float)],
+            return_type: Type::Float,
+        },
+        FunctionPrototype {
+            name: String::from("__compli_trace_bool"),
+            parameters: vec![(Variable::DONT_CARE, Type::Bool)],
+            return_type: Type::Bool,
+        },
+        FunctionPrototype {
+            name: String::from("__compli_bool_to_int"),
+            parameters: vec![(Variable::DONT_CARE, Type::Bool)],
+            return_type: Type::Int,
+        },
+        FunctionPrototype {
+            name: String::from("__compli_float_to_int"),
+            parameters: vec![(Variable::DONT_CARE, Type::Float)],
+            return_type: Type::Int,
+        },
+        FunctionPrototype {
+            name: String::from("__compli_int_to_float"),
+            parameters: vec![(Variable::DONT_CARE, Type::Int)],
+            return_type: Type::Float,
+        },
     ]
-}
-
-pub fn compli_trace_int() -> FunctionPrototype {
-    FunctionPrototype {
-        name: String::from("__compli_trace_int"),
-        parameters: vec![(Variable::DONT_CARE, Type::Int)],
-        return_type: Type::Int,
-    }
-}
-
-pub fn compli_trace_float() -> FunctionPrototype {
-    FunctionPrototype {
-        name: String::from("__compli_trace_float"),
-        parameters: vec![(Variable::DONT_CARE, Type::Float)],
-        return_type: Type::Float,
-    }
-}
-
-pub fn compli_trace_bool() -> FunctionPrototype {
-    FunctionPrototype {
-        name: String::from("__compli_trace_bool"),
-        parameters: vec![(Variable::DONT_CARE, Type::Bool)],
-        return_type: Type::Bool,
-    }
-}
-
-pub fn compli_bool_to_int() -> FunctionPrototype {
-    FunctionPrototype {
-        name: String::from("__compli_bool_to_int"),
-        parameters: vec![(Variable::DONT_CARE, Type::Bool)],
-        return_type: Type::Int,
-    }
-}
-
-pub fn compli_float_to_int() -> FunctionPrototype {
-    FunctionPrototype {
-        name: String::from("__compli_float_to_int"),
-        parameters: vec![(Variable::DONT_CARE, Type::Float)],
-        return_type: Type::Int,
-    }
-}
-
-pub fn compli_int_to_float() -> FunctionPrototype {
-    FunctionPrototype {
-        name: String::from("__compli_int_to_float"),
-        parameters: vec![(Variable::DONT_CARE, Type::Int)],
-        return_type: Type::Float,
-    }
 }
