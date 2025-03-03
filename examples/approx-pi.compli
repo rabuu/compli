@@ -1,8 +1,8 @@
-func main(): int = let _ = trace(approx_pi(1000.0)) in 0
+func main(): int = let _ = trace(approx_pi(1000)) in 0
 
-func sum(n: float): float = (
-	if n <= 0.0 then 0.0
-	else (1.0 / (n * n)) + sum(n - 1.0)
+func sum(n: int): float = (
+	if n <= 0 then 0.0
+	else (1.0 / cast_float(n * n)) + sum(n - 1)
 )
 
-func approx_pi(n: float): float = 6.0 * sum(n)
+func approx_pi(n: int): float = 6.0 * sum(n)

@@ -267,6 +267,41 @@ impl Lowerer {
                     });
                 }
 
+                // builtin: cast_int function
+                if function.as_str() == "cast_int" {
+                    let function_name = match args[0].type_context {
+                        ast::Type::Bool => "__compli_bool_to_int",
+                        ast::Type::Float => "__compli_float_to_int",
+                        _ => unreachable!("ensured by type checker"),
+                    }
+                    .to_string();
+
+                    let mut args = args;
+                    let lowered_arg = self.lower_expression(args.swap_remove(0), vars)?;
+
+                    return Ok(ir::Expression::FunctionCall {
+                        function_name,
+                        args: vec![lowered_arg],
+                    });
+                }
+
+                // builtin: cast_float function
+                if function.as_str() == "cast_float" {
+                    let function_name = match args[0].type_context {
+                        ast::Type::Int => "__compli_int_to_float",
+                        _ => unreachable!("ensured by type checker"),
+                    }
+                    .to_string();
+
+                    let mut args = args;
+                    let lowered_arg = self.lower_expression(args.swap_remove(0), vars)?;
+
+                    return Ok(ir::Expression::FunctionCall {
+                        function_name,
+                        args: vec![lowered_arg],
+                    });
+                }
+
                 let mut lowered_args = Vec::with_capacity(args.len());
                 for arg in args {
                     lowered_args.push(self.lower_expression(arg, vars)?);

@@ -128,6 +128,15 @@ pub enum TypeCheckError {
         #[label("this expression")]
         span: Span,
     },
+
+    #[error("Cannot cast `{typ}` to `{target}`")]
+    ImpossibleCast {
+        typ: ast::Type,
+        target: ast::Type,
+
+        #[label("here")]
+        span: Span,
+    },
 }
 
 type Result<T> = std::result::Result<T, TypeCheckError>;
@@ -232,7 +241,7 @@ impl TypeChecker {
     ) -> Result<ast::Function<ast::Type>> {
         let name = function.name.as_str();
 
-        const ILLEGAL_NAMES: [&str; 1] = ["trace"];
+        const ILLEGAL_NAMES: [&str; 3] = ["trace", "cast_int", "cast_float"];
         if ILLEGAL_NAMES.contains(&name) || name.starts_with("__compli") {
             return Err(TypeCheckError::IllegalFunctionName {
                 name: function.name,
@@ -493,6 +502,74 @@ impl TypeChecker {
                         },
                         span: expr.span,
                         type_context: typ,
+                    });
+                }
+
+                // builtin: cast_int function
+                if function.as_str() == "cast_int" {
+                    if args.len() != 1 {
+                        return Err(TypeCheckError::WrongNumberOfArguments {
+                            expected: 1,
+                            actual: args.len(),
+                            span: expr.span,
+                        });
+                    }
+
+                    let mut args = args;
+                    let typed_arg = self.infer_expr(args.swap_remove(0), vars)?;
+                    let typ = typed_arg.type_context.clone();
+                    let target = ast::Type::Int;
+
+                    match typ {
+                        ast::Type::Float | ast::Type::Bool => (),
+                        _ => return Err(TypeCheckError::ImpossibleCast {
+                            typ,
+                            target,
+                            span: expr.span,
+                        })
+                    }
+
+                    return Ok(ast::Expression {
+                        kind: ast::ExpressionKind::Call {
+                            function,
+                            args: vec![typed_arg],
+                        },
+                        span: expr.span,
+                        type_context: target,
+                    });
+                }
+
+                // builtin: cast_float function
+                if function.as_str() == "cast_float" {
+                    if args.len() != 1 {
+                        return Err(TypeCheckError::WrongNumberOfArguments {
+                            expected: 1,
+                            actual: args.len(),
+                            span: expr.span,
+                        });
+                    }
+
+                    let mut args = args;
+                    let typed_arg = self.infer_expr(args.swap_remove(0), vars)?;
+                    let typ = typed_arg.type_context.clone();
+                    let target = ast::Type::Float;
+
+                    match typ {
+                        ast::Type::Int => (),
+                        _ => return Err(TypeCheckError::ImpossibleCast {
+                            typ,
+                            target,
+                            span: expr.span,
+                        })
+                    }
+
+                    return Ok(ast::Expression {
+                        kind: ast::ExpressionKind::Call {
+                            function,
+                            args: vec![typed_arg],
+                        },
+                        span: expr.span,
+                        type_context: target,
                     });
                 }
 

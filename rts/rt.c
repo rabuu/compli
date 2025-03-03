@@ -14,10 +14,21 @@ float __compli_trace_float(float x) {
   return x;
 }
 
-
 bool __compli_trace_bool(bool x) {
   x ? printf("true\n") : printf("false\n");
   return x;
+}
+
+int32_t __compli_bool_to_int(bool x) {
+  return (int32_t) x;
+}
+
+int32_t __compli_float_to_int(float x) {
+  return (int32_t) x;
+}
+
+float __compli_int_to_float(int32_t x) {
+  return (float) x;
 }
 
 int main(void) {
