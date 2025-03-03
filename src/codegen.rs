@@ -149,15 +149,15 @@ impl<'ctx> Codegen<'ctx> {
     ) -> Result<BasicValueEnum<'ctx>> {
         match expression {
             ir::Expression::Direct(value) => Ok(self.compile_value(value, bindings)),
-            ir::Expression::LocalBinding(local) => {
-                let bind = self.compile_expression(&local.bind, bindings)?;
+            ir::Expression::LocalBinding { var, bind, body } => {
+                let bind = self.compile_expression(&bind, bindings)?;
                 let mut extended_bindings = bindings.clone();
-                extended_bindings.insert(local.var, bind);
-                self.compile_expression(&local.body, &extended_bindings)
+                extended_bindings.insert(*var, bind);
+                self.compile_expression(&body, &extended_bindings)
             }
-            ir::Expression::UnaryOperation(unaop) => {
-                let arg = self.compile_expression(&unaop.inner, bindings)?;
-                match unaop.kind {
+            ir::Expression::UnaryOperation { kind, inner } => {
+                let arg = self.compile_expression(&inner, bindings)?;
+                match kind {
                     ir::UnaryOperationKind::NegInt => Ok(self
                         .builder
                         .build_int_neg(arg.into_int_value(), "neg")?
@@ -172,10 +172,10 @@ impl<'ctx> Codegen<'ctx> {
                         .as_basic_value_enum()),
                 }
             }
-            ir::Expression::BinaryOperation(binop) => {
-                let lhs = self.compile_expression(&binop.lhs, bindings)?;
-                let rhs = self.compile_expression(&binop.rhs, bindings)?;
-                match binop.kind {
+            ir::Expression::BinaryOperation { kind, lhs, rhs } => {
+                let lhs = self.compile_expression(&lhs, bindings)?;
+                let rhs = self.compile_expression(&rhs, bindings)?;
+                match kind {
                     ir::BinaryOperationKind::AddInt => Ok(self
                         .builder
                         .build_int_add(lhs.into_int_value(), rhs.into_int_value(), "add")?
@@ -308,8 +308,8 @@ impl<'ctx> Codegen<'ctx> {
                         .as_basic_value_enum()),
                 }
             }
-            ir::Expression::Conditional(c) => {
-                let condition = self.compile_expression(&c.condition, bindings)?;
+            ir::Expression::Conditional { condition, yes, no, float_mode } => {
+                let condition = self.compile_expression(&condition, bindings)?;
 
                 let then_bb = self.context.append_basic_block(self.function, "then");
                 let else_bb = self.context.append_basic_block(self.function, "else");
@@ -322,14 +322,14 @@ impl<'ctx> Codegen<'ctx> {
                 )?;
 
                 self.builder.position_at_end(then_bb);
-                let then_value = self.compile_expression(&c.yes, bindings)?;
+                let then_value = self.compile_expression(&yes, bindings)?;
                 self.builder.build_unconditional_branch(cont_bb)?;
 
                 // NOTE: Important! Update bb for phi merge because the expression may change it
                 let updated_then_bb = self.builder.get_insert_block().unwrap();
 
                 self.builder.position_at_end(else_bb);
-                let else_value = self.compile_expression(&c.no, bindings)?;
+                let else_value = self.compile_expression(&no, bindings)?;
                 self.builder.build_unconditional_branch(cont_bb)?;
 
                 // NOTE: Important! Update bb for phi merge because the expression may change it
@@ -337,7 +337,7 @@ impl<'ctx> Codegen<'ctx> {
 
                 self.builder.position_at_end(cont_bb);
 
-                let phi_type = if c.float_mode {
+                let phi_type = if *float_mode {
                     self.context.f32_type().as_basic_type_enum()
                 } else {
                     self.context.i32_type().as_basic_type_enum()

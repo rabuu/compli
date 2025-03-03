@@ -64,24 +64,26 @@ pub enum Expression {
         record: Box<Expression>,
         index: usize,
     },
-    LocalBinding(Box<LocalBinding>),
-    BinaryOperation(Box<BinaryOperation>),
-    UnaryOperation(Box<UnaryOperation>),
-    Conditional(Box<Conditional>),
-}
-
-#[derive(Debug, Clone)]
-pub struct LocalBinding {
-    pub var: Variable,
-    pub bind: Expression,
-    pub body: Expression,
-}
-
-#[derive(Debug, Clone)]
-pub struct BinaryOperation {
-    pub kind: BinaryOperationKind,
-    pub lhs: Expression,
-    pub rhs: Expression,
+    LocalBinding {
+        var: Variable,
+        bind: Box<Expression>,
+        body: Box<Expression>,
+    },
+    BinaryOperation {
+        kind: BinaryOperationKind,
+        lhs: Box<Expression>,
+        rhs: Box<Expression>,
+    },
+    UnaryOperation {
+        kind: UnaryOperationKind,
+        inner: Box<Expression>,
+    },
+    Conditional {
+        condition: Box<Expression>,
+        yes: Box<Expression>,
+        no: Box<Expression>,
+        float_mode: bool,
+    },
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -108,25 +110,11 @@ pub enum BinaryOperationKind {
     Or,
 }
 
-#[derive(Debug, Clone)]
-pub struct UnaryOperation {
-    pub kind: UnaryOperationKind,
-    pub inner: Expression,
-}
-
 #[derive(Debug, Clone, Copy)]
 pub enum UnaryOperationKind {
     NegInt,
     NegFloat,
     Not,
-}
-
-#[derive(Debug, Clone)]
-pub struct Conditional {
-    pub condition: Expression,
-    pub yes: Expression,
-    pub no: Expression,
-    pub float_mode: bool,
 }
 
 /* PRETTY PRINTING */
@@ -257,7 +245,7 @@ impl TreeItem for Expression {
                     f,
                     "{}",
                     style.paint(format!(
-                        "CONSTRUCTOR {}",
+                        "CONSTRUCT {}",
                         Type::Record(record_fields.clone())
                     ))
                 )
@@ -265,10 +253,10 @@ impl TreeItem for Expression {
             Expression::RecordSelector { index, .. } => {
                 write!(f, "{}", style.paint(format!("SELECT {index}")))
             }
-            Expression::LocalBinding(x) => write!(f, "{}", style.paint(format!("LET {}", x.var))),
-            Expression::BinaryOperation(x) => write!(f, "{}", style.paint(x.kind)),
-            Expression::UnaryOperation(x) => write!(f, "{}", style.paint(x.kind)),
-            Expression::Conditional(_) => write!(f, "{}", style.paint("COND")),
+            Expression::LocalBinding { var, .. } => write!(f, "{}", style.paint(format!("LET {var}"))),
+            Expression::BinaryOperation { kind, .. } => write!(f, "{}", style.paint(kind)),
+            Expression::UnaryOperation { kind, .. } => write!(f, "{}", style.paint(kind)),
+            Expression::Conditional { .. } => write!(f, "{}", style.paint("COND")),
         }
     }
 
@@ -278,11 +266,11 @@ impl TreeItem for Expression {
             Expression::FunctionCall { args, .. } => Cow::from(args.clone()),
             Expression::RecordConstructor { args, .. } => Cow::from(args.clone()),
             Expression::RecordSelector { record, .. } => Cow::from(vec![*record.clone()]),
-            Expression::LocalBinding(x) => Cow::from(vec![x.bind.clone(), x.body.clone()]),
-            Expression::BinaryOperation(x) => Cow::from(vec![x.lhs.clone(), x.rhs.clone()]),
-            Expression::UnaryOperation(x) => Cow::from(vec![x.inner.clone()]),
-            Expression::Conditional(x) => {
-                Cow::from(vec![x.condition.clone(), x.yes.clone(), x.no.clone()])
+            Expression::LocalBinding { bind, body, .. } => Cow::from(vec![*bind.clone(), *body.clone()]),
+            Expression::BinaryOperation { lhs, rhs, .. } => Cow::from(vec![*lhs.clone(), *rhs.clone()]),
+            Expression::UnaryOperation { inner, .. } => Cow::from(vec![*inner.clone()]),
+            Expression::Conditional { condition, yes, no, .. } => {
+                Cow::from(vec![*condition.clone(), *yes.clone(), *no.clone()])
             }
         }
     }

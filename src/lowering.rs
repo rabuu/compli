@@ -155,72 +155,64 @@ impl Lowerer {
                 let float_mode = inner.type_context == ast::Type::Float;
 
                 let arg = self.lower_expression(*inner, vars)?;
-                Ok(ir::Expression::UnaryOperation(Box::new(
-                    ir::UnaryOperation {
-                        kind: match op {
-                            ast::UnaryOperation::Neg if float_mode => {
-                                ir::UnaryOperationKind::NegFloat
-                            }
-                            ast::UnaryOperation::Neg => ir::UnaryOperationKind::NegInt,
-                            ast::UnaryOperation::Not => ir::UnaryOperationKind::Not,
-                        },
-                        inner: arg,
+                Ok(ir::Expression::UnaryOperation {
+                    kind: match op {
+                        ast::UnaryOperation::Neg if float_mode => ir::UnaryOperationKind::NegFloat,
+                        ast::UnaryOperation::Neg => ir::UnaryOperationKind::NegInt,
+                        ast::UnaryOperation::Not => ir::UnaryOperationKind::Not,
                     },
-                )))
+                    inner: Box::new(arg),
+                })
             }
             ast::ExpressionKind::Binary { op: kind, lhs, rhs } => {
                 let float_mode = lhs.type_context == ast::Type::Float;
 
                 let lhs = self.lower_expression(*lhs, vars)?;
                 let rhs = self.lower_expression(*rhs, vars)?;
-                Ok(ir::Expression::BinaryOperation(Box::new(
-                    ir::BinaryOperation {
-                        kind: match kind {
-                            ast::BinaryOperation::Add if float_mode => {
-                                ir::BinaryOperationKind::AddFloat
-                            }
-                            ast::BinaryOperation::Sub if float_mode => {
-                                ir::BinaryOperationKind::SubFloat
-                            }
-                            ast::BinaryOperation::Mul if float_mode => {
-                                ir::BinaryOperationKind::MulFloat
-                            }
-                            ast::BinaryOperation::Div if float_mode => {
-                                ir::BinaryOperationKind::DivFloat
-                            }
-                            ast::BinaryOperation::Equals if float_mode => {
-                                ir::BinaryOperationKind::EqualsFloat
-                            }
-                            ast::BinaryOperation::Less if float_mode => {
-                                ir::BinaryOperationKind::LessFloat
-                            }
-                            ast::BinaryOperation::LessEq if float_mode => {
-                                ir::BinaryOperationKind::LessEqFloat
-                            }
-                            ast::BinaryOperation::Greater if float_mode => {
-                                ir::BinaryOperationKind::GreaterFloat
-                            }
-                            ast::BinaryOperation::GreaterEq if float_mode => {
-                                ir::BinaryOperationKind::GreaterEqFloat
-                            }
-                            ast::BinaryOperation::Add => ir::BinaryOperationKind::AddInt,
-                            ast::BinaryOperation::Sub => ir::BinaryOperationKind::SubInt,
-                            ast::BinaryOperation::Mul => ir::BinaryOperationKind::MulInt,
-                            ast::BinaryOperation::Div => ir::BinaryOperationKind::DivInt,
-                            ast::BinaryOperation::Equals => ir::BinaryOperationKind::EqualsInt,
-                            ast::BinaryOperation::Less => ir::BinaryOperationKind::LessInt,
-                            ast::BinaryOperation::LessEq => ir::BinaryOperationKind::LessEqInt,
-                            ast::BinaryOperation::Greater => ir::BinaryOperationKind::GreaterInt,
-                            ast::BinaryOperation::GreaterEq => {
-                                ir::BinaryOperationKind::GreaterEqInt
-                            }
-                            ast::BinaryOperation::And => ir::BinaryOperationKind::And,
-                            ast::BinaryOperation::Or => ir::BinaryOperationKind::Or,
-                        },
-                        lhs,
-                        rhs,
+                Ok(ir::Expression::BinaryOperation {
+                    kind: match kind {
+                        ast::BinaryOperation::Add if float_mode => {
+                            ir::BinaryOperationKind::AddFloat
+                        }
+                        ast::BinaryOperation::Sub if float_mode => {
+                            ir::BinaryOperationKind::SubFloat
+                        }
+                        ast::BinaryOperation::Mul if float_mode => {
+                            ir::BinaryOperationKind::MulFloat
+                        }
+                        ast::BinaryOperation::Div if float_mode => {
+                            ir::BinaryOperationKind::DivFloat
+                        }
+                        ast::BinaryOperation::Equals if float_mode => {
+                            ir::BinaryOperationKind::EqualsFloat
+                        }
+                        ast::BinaryOperation::Less if float_mode => {
+                            ir::BinaryOperationKind::LessFloat
+                        }
+                        ast::BinaryOperation::LessEq if float_mode => {
+                            ir::BinaryOperationKind::LessEqFloat
+                        }
+                        ast::BinaryOperation::Greater if float_mode => {
+                            ir::BinaryOperationKind::GreaterFloat
+                        }
+                        ast::BinaryOperation::GreaterEq if float_mode => {
+                            ir::BinaryOperationKind::GreaterEqFloat
+                        }
+                        ast::BinaryOperation::Add => ir::BinaryOperationKind::AddInt,
+                        ast::BinaryOperation::Sub => ir::BinaryOperationKind::SubInt,
+                        ast::BinaryOperation::Mul => ir::BinaryOperationKind::MulInt,
+                        ast::BinaryOperation::Div => ir::BinaryOperationKind::DivInt,
+                        ast::BinaryOperation::Equals => ir::BinaryOperationKind::EqualsInt,
+                        ast::BinaryOperation::Less => ir::BinaryOperationKind::LessInt,
+                        ast::BinaryOperation::LessEq => ir::BinaryOperationKind::LessEqInt,
+                        ast::BinaryOperation::Greater => ir::BinaryOperationKind::GreaterInt,
+                        ast::BinaryOperation::GreaterEq => ir::BinaryOperationKind::GreaterEqInt,
+                        ast::BinaryOperation::And => ir::BinaryOperationKind::And,
+                        ast::BinaryOperation::Or => ir::BinaryOperationKind::Or,
                     },
-                )))
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                })
             }
             ast::ExpressionKind::LetIn { mut binds, body } => {
                 let mut extended_vars = vars.clone();
@@ -234,11 +226,11 @@ impl Lowerer {
 
                     let body = self.lower_expression(*body, &extended_vars)?;
 
-                    Ok(ir::Expression::LocalBinding(Box::new(ir::LocalBinding {
+                    Ok(ir::Expression::LocalBinding {
                         var: fresh,
-                        bind,
-                        body,
-                    })))
+                        bind: Box::new(bind),
+                        body: Box::new(body),
+                    })
                 } else {
                     let (last_var, _, last_expr) = binds.remove(0);
                     let bind = self.lower_expression(last_expr, vars)?;
@@ -253,22 +245,22 @@ impl Lowerer {
                     };
                     let rest = self.lower_expression(rest, &extended_vars)?;
 
-                    Ok(ir::Expression::LocalBinding(Box::new(ir::LocalBinding {
+                    Ok(ir::Expression::LocalBinding {
                         var: fresh,
-                        bind,
-                        body: rest,
-                    })))
+                        bind: Box::new(bind),
+                        body: Box::new(rest),
+                    })
                 }
             }
             ast::ExpressionKind::IfThenElse { condition, yes, no } => {
                 let float_mode = yes.type_context == ast::Type::Float;
 
-                Ok(ir::Expression::Conditional(Box::new(ir::Conditional {
-                    condition: self.lower_expression(*condition, vars)?,
-                    yes: self.lower_expression(*yes, vars)?,
-                    no: self.lower_expression(*no, vars)?,
+                Ok(ir::Expression::Conditional {
+                    condition: Box::new(self.lower_expression(*condition, vars)?),
+                    yes: Box::new(self.lower_expression(*yes, vars)?),
+                    no: Box::new(self.lower_expression(*no, vars)?),
                     float_mode,
-                })))
+                })
             }
             ast::ExpressionKind::Call { function, args } => {
                 // builtin: trace function
