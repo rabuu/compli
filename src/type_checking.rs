@@ -48,6 +48,15 @@ pub enum TypeCheckError {
         span: Span,
     },
 
+    #[error("There is already a record with the name `{name}`")]
+    #[diagnostic(help("The name is reserved for the record constructor"))]
+    FunctionSameNameAsRecord {
+        name: ast::Ident,
+
+        #[label("function definition")]
+        span: Span,
+    },
+
     #[error("There are multiple function definitions with the name `{name}`")]
     MultipleFunctionDefinitions {
         name: ast::Ident,
@@ -188,6 +197,13 @@ impl TypeChecker {
         const ILLEGAL_NAMES: [&str; 1] = ["trace"];
         if ILLEGAL_NAMES.contains(&name) || name.starts_with("__compli") {
             return Err(TypeCheckError::IllegalFunctionName {
+                name: function.name,
+                span: function.name_span,
+            });
+        }
+
+        if self.defined_records.contains(&function.name) {
+            return Err(TypeCheckError::FunctionSameNameAsRecord {
                 name: function.name,
                 span: function.name_span,
             });
