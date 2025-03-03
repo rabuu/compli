@@ -30,3 +30,8 @@ fn records() {
 fn casting() {
     run_pipeline(include_str!("../examples/casting.compli"));
 }
+
+#[test]
+fn quadratic_formula() {
+    run_pipeline(include_str!("../examples/quadratic-formula.compli"));
+}
