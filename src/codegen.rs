@@ -13,8 +13,8 @@ use thiserror::Error;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
-use inkwell::types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum};
-use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue};
+use inkwell::types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, StructType};
+use inkwell::values::{AggregateValue, BasicValue, BasicValueEnum, FunctionValue};
 
 use crate::{builtin, ir, Variable};
 
@@ -133,13 +133,13 @@ impl<'ctx> Codegen<'ctx> {
             ir::Type::Int => self.context.i32_type().as_basic_type_enum(),
             ir::Type::Float => self.context.f32_type().as_basic_type_enum(),
             ir::Type::Bool => self.context.bool_type().as_basic_type_enum(),
-            ir::Type::Record(fields) => {
-                let fields: Vec<_> = fields.iter().map(|typ| self.compile_type(typ)).collect();
-                self.context
-                    .struct_type(&fields, false)
-                    .as_basic_type_enum()
-            }
+            ir::Type::Record(fields) => self.compile_record(fields).as_basic_type_enum(),
         }
+    }
+
+    fn compile_record(&self, fields: &[ir::Type]) -> StructType<'ctx> {
+        let fields: Vec<_> = fields.iter().map(|typ| self.compile_type(typ)).collect();
+        self.context.struct_type(&fields, false)
     }
 
     fn compile_expression(
@@ -366,7 +366,29 @@ impl<'ctx> Codegen<'ctx> {
                 }
                 None => Err(CodegenError::UnknownFunction(function_name.clone())),
             },
-            ir::Expression::RecordConstructor { record_fields, args } => todo!(),
+            ir::Expression::RecordConstructor {
+                record_fields,
+                args,
+            } => {
+                let mut compiled_args = Vec::with_capacity(args.len());
+                for arg in args {
+                    compiled_args.push(self.compile_expression(arg, bindings)?);
+                }
+
+                let struct_type = self.compile_record(record_fields);
+                let mut struct_value = struct_type.const_zero().as_aggregate_value_enum();
+
+                for (i, arg) in compiled_args.into_iter().enumerate() {
+                    struct_value = self.builder.build_insert_value(
+                        struct_value,
+                        arg,
+                        i as u32,
+                        "construct",
+                    )?;
+                }
+
+                Ok(struct_value.as_basic_value_enum())
+            }
         }
     }
 
