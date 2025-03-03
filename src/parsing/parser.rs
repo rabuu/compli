@@ -252,7 +252,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
             },
         );
 
-    let record = just(Token::KwData)
+    let record = just(Token::KwRec)
         .ignore_then(ident.map_with_span(|name, span: Span| (name, span)))
         .then_ignore(just(Token::Assign))
         .then(

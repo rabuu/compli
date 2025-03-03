@@ -1,5 +1,5 @@
-data rectangle = width: int, height: int
-data scaled_rectangle = rect: rectangle, scale: float
+rec rectangle = width: int, height: int
+rec scaled_rectangle = rect: rectangle, scale: float
 
 func make_rectangle(): rectangle = rectangle(10, 20)
 func make_scaled_rectangle(): scaled_rectangle = scaled_rectangle(make_rectangle(), 2.0)

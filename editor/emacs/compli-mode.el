@@ -2,7 +2,7 @@
   '("int" "bool" "float"))
 
 (defun compli-keywords ()
-  '("func" "data" "let" "in" "if" "then" "else" "true" "false"))
+  '("func" "rec" "let" "in" "if" "then" "else" "true" "false"))
 
 (defun compli-font-lock-keywords ()
   (list

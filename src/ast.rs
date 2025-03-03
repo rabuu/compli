@@ -234,7 +234,7 @@ impl TreeItem for Record {
     type Child = RecordField;
 
     fn write_self<W: io::Write>(&self, f: &mut W, style: &Style) -> io::Result<()> {
-        write!(f, "{}", style.paint(format!("DATA {}", self.name.clone())))
+        write!(f, "{}", style.paint(format!("REC {}", self.name.clone())))
     }
 
     fn children(&self) -> Cow<[Self::Child]> {
