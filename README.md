@@ -27,11 +27,12 @@ Also:
 ## Usage
 The compiler CLI supports multiple execution modes:
 ```sh
-compli INPUT-FILE
+compli INPUT-FILE # this will compile the source code
 compli INPUT-FILE --mode ast
 compli INPUT-FILE --mode typed-ast
 compli INPUT-FILE --mode ir
 ```
+See `compli --help` for all options.
 
 ### Example
 ```sh
