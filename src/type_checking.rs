@@ -103,6 +103,23 @@ pub enum TypeCheckError {
         span: Span,
     },
 
+    #[error("Multiple fields in one record are called `{field_name}`")]
+    MultipleFieldNames {
+        field_name: ast::Ident,
+
+        #[label("in this definition")]
+        span: Span,
+    },
+
+    #[error("Tried to select field `{field_name}` but expression is of type `{typ}`")]
+    IllegalSelector {
+        field_name: ast::Ident,
+        typ: ast::Type,
+
+        #[label("here")]
+        span: Span,
+    },
+
     #[error("The type `{typ}` cannot be traced")]
     #[diagnostic(help("Only primitives (int, float, bool) can be traced"))]
     UntracableType {
@@ -149,7 +166,7 @@ pub fn type_check(program: ast::UntypedProgram) -> Result<ast::TypedProgram> {
 
 fn check_record_definitions(
     records: &[ast::Record],
-) -> Result<HashMap<ast::Ident, Vec<ast::Type>>> {
+) -> Result<HashMap<ast::Ident, Vec<(ast::Ident, ast::Type)>>> {
     let mut defined_records = HashMap::new();
     for record in records {
         if defined_records.contains_key(&record.name) {
@@ -159,7 +176,15 @@ fn check_record_definitions(
             });
         }
 
+        let mut field_names = HashSet::new();
         for (field_name, field_type) in &record.fields {
+            if field_names.contains(field_name) {
+                return Err(TypeCheckError::MultipleFieldNames {
+                    field_name: field_name.clone(),
+                    span: record.name_span,
+                });
+            }
+
             if let ast::Type::Record(name) = field_type {
                 if !defined_records.contains_key(name) {
                     return Err(TypeCheckError::UnknownTypeInRecordDefinition {
@@ -169,15 +194,11 @@ fn check_record_definitions(
                     });
                 }
             }
+
+            field_names.insert(field_name);
         }
 
-        let field_types = record
-            .fields
-            .clone()
-            .into_iter()
-            .map(|(_, typ)| typ)
-            .collect();
-        defined_records.insert(record.name.clone(), field_types);
+        defined_records.insert(record.name.clone(), record.fields.clone());
     }
 
     Ok(defined_records)
@@ -190,13 +211,13 @@ struct TypeChecker {
     prototypes: HashMap<ast::Ident, (Vec<ast::Type>, ast::Type)>,
     defined_functions: HashSet<ast::Ident>,
 
-    defined_records: HashMap<ast::Ident, Vec<ast::Type>>,
+    defined_records: HashMap<ast::Ident, Vec<(ast::Ident, ast::Type)>>,
 }
 
 impl TypeChecker {
     fn new(
         prototypes: HashMap<ast::Ident, (Vec<ast::Type>, ast::Type)>,
-        defined_records: HashMap<ast::Ident, Vec<ast::Type>>,
+        defined_records: HashMap<ast::Ident, Vec<(ast::Ident, ast::Type)>>,
     ) -> Self {
         Self {
             prototypes,
@@ -477,7 +498,10 @@ impl TypeChecker {
 
                 let (params, return_type) =
                     match self.defined_records.get(&function) {
-                        Some(fields) => &(fields.clone(), ast::Type::Record(function.clone())),
+                        Some(fields) => &(
+                            fields.clone().into_iter().map(|(_, typ)| typ).collect(),
+                            ast::Type::Record(function.clone()),
+                        ),
                         None => self.prototypes.get(&function).ok_or_else(|| {
                             TypeCheckError::NotBound {
                                 name: function.clone(),
@@ -510,7 +534,45 @@ impl TypeChecker {
                     type_context: return_type.clone(),
                 })
             }
-            ast::ExpressionKind::RecordSelector { expr, field } => todo!(),
+            ast::ExpressionKind::RecordSelector { expr: inner, field } => {
+                let typed_inner = self.infer_expr(*inner, vars)?;
+                let inner_typ = typed_inner.type_context.clone();
+
+                let ast::Type::Record(name) = &typed_inner.type_context else {
+                    return Err(TypeCheckError::IllegalSelector {
+                        field_name: field,
+                        typ: inner_typ,
+                        span: expr.span,
+                    });
+                };
+
+                let Some(fields) = self.defined_records.get(name) else {
+                    return Err(TypeCheckError::IllegalSelector {
+                        field_name: field,
+                        typ: inner_typ,
+                        span: expr.span,
+                    });
+                };
+
+                let Some(typ) = fields.iter().find_map(|(field_name, field_type)| {
+                    (*field_name == field).then_some(field_type)
+                }) else {
+                    return Err(TypeCheckError::IllegalSelector {
+                        field_name: field,
+                        typ: inner_typ,
+                        span: expr.span,
+                    });
+                };
+
+                Ok(ast::Expression {
+                    kind: ast::ExpressionKind::RecordSelector {
+                        expr: Box::new(typed_inner),
+                        field,
+                    },
+                    span: expr.span,
+                    type_context: typ.clone(),
+                })
+            }
         }
     }
 }
