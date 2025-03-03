@@ -228,7 +228,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
         choice((if_then_else, let_in, term))
     });
 
-    let func = just(Token::KwDef)
+    let def = just(Token::KwDef)
         .ignore_then(ident.map_with_span(|name, span: Span| (name, span)))
         .then(
             ident
@@ -236,7 +236,8 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
                 .then(typ.clone())
                 .separated_by(just(Token::Comma))
                 .allow_trailing()
-                .delimited_by(just(Token::ParenOpen), just(Token::ParenClose)),
+                .delimited_by(just(Token::ParenOpen), just(Token::ParenClose))
+                .or_not(),
         )
         .then_ignore(just(Token::Colon))
         .then(typ.clone())
@@ -245,7 +246,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
         .map(
             |((((name, name_span), params), return_type), body)| ast::Function {
                 name,
-                params,
+                params: params.unwrap_or_default(),
                 return_type,
                 body,
                 name_span,
@@ -274,7 +275,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
     }
 
     let func_or_record = choice((
-        func.map(FunctionOrRecord::Function),
+        def.map(FunctionOrRecord::Function),
         record.map(FunctionOrRecord::Record),
     ));
 
