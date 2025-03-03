@@ -51,7 +51,7 @@ impl fmt::Display for Type {
             Type::Int => write!(f, "int"),
             Type::Float => write!(f, "float"),
             Type::Bool => write!(f, "bool"),
-            Type::Record(name) => write!(f, "record:{name}"),
+            Type::Record(name) => write!(f, "{name}"),
         }
     }
 }
