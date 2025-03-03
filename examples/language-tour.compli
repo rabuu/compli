@@ -1,26 +1,26 @@
 // Every compli program needs a `main` function.
 // It takes no arguments and returns an int that gets printed when running the program.
-func main(): int = 42
+def main(): int = 42
 
 // There are three main data types: int, float and bool.
-func return_float(): float = 0.5
-func return_bool(): bool = true
+def return_float(): float = 0.5
+def return_bool(): bool = true
 
 // A function consists of a list of parameters, a return type and a body expression.
-func foo(a: int, c: bool): float = 12.34
+def foo(a: int, c: bool): float = 12.34
 
 // Many common basic operations are supported.
-func add(a: int, b: int): int = a + b
-func sub(a: float, b: float): float = a - b
-func gauss(n: int): int = (n * (n + 1)) / 2
-func boolean(a: bool, b: bool, c: bool): bool = !a && b || !c
+def add(a: int, b: int): int = a + b
+def sub(a: float, b: float): float = a - b
+def gauss(n: int): int = (n * (n + 1)) / 2
+def boolean(a: bool, b: bool, c: bool): bool = !a && b || !c
 
 // You must not mix data types. The following would not work:
-// func illegal_mixup(a: int, b: float): int = a + b
+// def illegal_mixup(a: int, b: float): int = a + b
 
 // You can give names to temporary values.
-func let_example(a: int): int = let square = a * a in square + 1
-func complex_let_example(a: int): int = (
+def let_example(a: int): int = let square = a * a in square + 1
+def complex_let_example(a: int): int = (
 	let b = 2 * a,
 		c = b + 1,
 		c = c + b
@@ -29,6 +29,6 @@ func complex_let_example(a: int): int = (
 )
 
 // There is a basic if-then-else expression for conditional evaluation.
-func if_example(a: float, b: float): int = (
+def if_example(a: float, b: float): int = (
 	if a > b then 0 else 1
 )

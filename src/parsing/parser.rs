@@ -228,7 +228,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
         choice((if_then_else, let_in, term))
     });
 
-    let func = just(Token::KwFunc)
+    let func = just(Token::KwDef)
         .ignore_then(ident.map_with_span(|name, span: Span| (name, span)))
         .then(
             ident

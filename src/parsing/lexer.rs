@@ -23,7 +23,7 @@ pub enum Token {
     KwInt,
     KwFloat,
 
-    KwFunc,
+    KwDef,
     KwRec,
     KwIf,
     KwThen,
@@ -63,7 +63,7 @@ impl fmt::Display for Token {
             Token::KwFloat => write!(f, "float"),
             Token::Float(x) => write!(f, "{}", x),
             Token::Ident(id) => write!(f, "{}", id),
-            Token::KwFunc => write!(f, "func"),
+            Token::KwDef => write!(f, "def"),
             Token::KwRec => write!(f, "rec"),
             Token::Assign => write!(f, "="),
             Token::Equals => write!(f, "=="),
@@ -129,7 +129,7 @@ pub fn lex() -> impl Parser<char, Vec<(Token, Span)>, Error = ParseErr<char>> {
         "bool" => Token::KwBool,
         "int" => Token::KwInt,
         "float" => Token::KwFloat,
-        "func" => Token::KwFunc,
+        "def" => Token::KwDef,
         "rec" => Token::KwRec,
         "if" => Token::KwIf,
         "then" => Token::KwThen,
@@ -185,7 +185,7 @@ mod tests {
 
     #[test]
     fn spans() {
-        let src = r#"func
+        let src = r#"def
 let
     in
         "#;
@@ -193,9 +193,9 @@ let
         assert_eq!(
             tokenize(src),
             vec![
-                (Token::KwFunc, Span::new(0, 4)),
-                (Token::KwLet, Span::new(5, 8)),
-                (Token::KwIn, Span::new(13, 15))
+                (Token::KwDef, Span::new(0, 3)),
+                (Token::KwLet, Span::new(4, 7)),
+                (Token::KwIn, Span::new(12, 14))
             ]
         );
     }
@@ -203,7 +203,7 @@ let
     #[test]
     fn function() {
         let src = r#"
-func foo(a: int): float = (
+def foo(a: int): float = (
     let b = 1, c = true in
     if 3 > 4 then 123.4 else 0.0
 )
@@ -212,7 +212,7 @@ func foo(a: int): float = (
         assert_eq!(
             tokenize_without_spans(src),
             vec![
-                Token::KwFunc,
+                Token::KwDef,
                 Token::Ident(String::from("foo")),
                 Token::ParenOpen,
                 Token::Ident(String::from("a")),

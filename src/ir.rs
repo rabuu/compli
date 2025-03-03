@@ -130,7 +130,7 @@ impl Program {
         print_tree(&self.entry)?;
         println!();
         for function in &self.functions {
-            print!("FUNC ");
+            print!("FUNCTION ");
             print_tree(function)?;
         }
 

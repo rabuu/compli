@@ -140,7 +140,7 @@ mod tests {
     #[test]
     fn program() {
         let src = r#"
-func foo(): int = 1 func BAr_2(_: float): bool=     true &&  false
+def foo(): int = 1 def BAr_2(_: float): bool=     true &&  false
         "#;
 
         assert_eq!(
@@ -152,12 +152,12 @@ func foo(): int = 1 func BAr_2(_: float): bool=     true &&  false
                         name: String::from("foo"),
                         body: ast::Expression {
                             kind: ast::ExpressionKind::Int(1),
-                            span: Span::new(19, 20),
+                            span: Span::new(18, 19),
                             type_context: ast::NoContext,
                         },
                         params: vec![],
                         return_type: ast::Type::Int,
-                        name_span: Span::new(6, 9),
+                        name_span: Span::new(5, 8),
                     },
                     ast::Function {
                         name: String::from("BAr_2"),
@@ -166,21 +166,21 @@ func foo(): int = 1 func BAr_2(_: float): bool=     true &&  false
                                 op: ast::BinaryOperation::And,
                                 lhs: Box::new(ast::Expression {
                                     kind: ast::ExpressionKind::Bool(true),
-                                    span: Span::new(53, 57),
+                                    span: Span::new(51, 55),
                                     type_context: ast::NoContext,
                                 }),
                                 rhs: Box::new(ast::Expression {
                                     kind: ast::ExpressionKind::Bool(false),
-                                    span: Span::new(62, 67),
+                                    span: Span::new(60, 65),
                                     type_context: ast::NoContext,
                                 }),
                             },
-                            span: Span::new(53, 67),
+                            span: Span::new(51, 65),
                             type_context: ast::NoContext,
                         },
                         params: vec![(String::from("_"), ast::Type::Float)],
                         return_type: ast::Type::Bool,
-                        name_span: Span::new(26, 31),
+                        name_span: Span::new(24, 29),
                     }
                 ]
             }
@@ -190,14 +190,14 @@ func foo(): int = 1 func BAr_2(_: float): bool=     true &&  false
     #[test]
     #[should_panic]
     fn unclosed() {
-        let src = "func foo(): int = (1 + 2";
+        let src = "def foo(): int = (1 + 2";
         parse(src).unwrap();
     }
 
     #[test]
     #[should_panic]
     fn unopened() {
-        let src = "func foo(): int = 1 + 2)";
+        let src = "def foo(): int = 1 + 2)";
         parse(src).unwrap();
     }
 }
