@@ -249,7 +249,14 @@ impl TreeItem for Expression {
                 write!(f, "{}", style.paint(format!("CALL {function_name}")))
             }
             Expression::RecordConstructor { record_fields, .. } => {
-                write!(f, "{}", style.paint(format!("CONSTRUCTOR {}", Type::Record(record_fields.clone()))))
+                write!(
+                    f,
+                    "{}",
+                    style.paint(format!(
+                        "CONSTRUCTOR {}",
+                        Type::Record(record_fields.clone())
+                    ))
+                )
             }
             Expression::LocalBinding(x) => write!(f, "{}", style.paint(format!("LET {}", x.var))),
             Expression::BinaryOperation(x) => write!(f, "{}", style.paint(x.kind)),

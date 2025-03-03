@@ -110,7 +110,7 @@ pub enum TypeCheckError {
 
         #[label("this expression")]
         span: Span,
-    }
+    },
 }
 
 type Result<T> = std::result::Result<T, TypeCheckError>;
@@ -462,7 +462,7 @@ impl TypeChecker {
                         return Err(TypeCheckError::UntracableType {
                             typ,
                             span: expr.span,
-                        })
+                        });
                     }
 
                     return Ok(ast::Expression {

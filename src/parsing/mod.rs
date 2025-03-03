@@ -175,7 +175,6 @@ func foo(): int = 1 func BAr_2(_: float): bool=     true &&  false
                                     span: Span::new(62, 67),
                                     type_context: ast::NoContext,
                                 }),
-
                             },
                             span: Span::new(53, 67),
                             type_context: ast::NoContext,
