@@ -277,8 +277,7 @@ impl Lowerer {
                         ast::Type::Int => "__compli_trace_int",
                         ast::Type::Float => "__compli_trace_float",
                         ast::Type::Bool => "__compli_trace_bool",
-                        // TODO: tracing record types
-                        ast::Type::Record(_) => todo!(),
+                        ast::Type::Record(_) => unreachable!("ensured by type checker"),
                     }
                     .to_string();
 

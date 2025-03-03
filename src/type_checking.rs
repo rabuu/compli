@@ -102,6 +102,15 @@ pub enum TypeCheckError {
         #[label("in this definition")]
         span: Span,
     },
+
+    #[error("The type `{typ}` cannot be traced")]
+    #[diagnostic(help("Only primitives (int, float, bool) can be traced"))]
+    UntracableType {
+        typ: ast::Type,
+
+        #[label("this expression")]
+        span: Span,
+    }
 }
 
 type Result<T> = std::result::Result<T, TypeCheckError>;
@@ -448,6 +457,13 @@ impl TypeChecker {
                     let mut args = args;
                     let typed_arg = self.infer_expr(args.swap_remove(0), vars)?;
                     let typ = typed_arg.type_context.clone();
+
+                    if let ast::Type::Record(_) = typ {
+                        return Err(TypeCheckError::UntracableType {
+                            typ,
+                            span: expr.span,
+                        })
+                    }
 
                     return Ok(ast::Expression {
                         kind: ast::ExpressionKind::Call {
