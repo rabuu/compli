@@ -159,9 +159,7 @@ mod tests {
 
     fn tokenize(src: &str) -> Vec<(Token, Span)> {
         let eoi = Span::marker(src.chars().count());
-
         let chars = src.chars().enumerate().map(|(i, c)| (c, Span::single(i)));
-
         lex().parse(chumsky::Stream::from_iter(eoi, chars)).unwrap()
     }
 
