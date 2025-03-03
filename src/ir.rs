@@ -60,6 +60,10 @@ pub enum Expression {
         record_fields: Vec<Type>,
         args: Vec<Expression>,
     },
+    RecordSelector {
+        record: Box<Expression>,
+        index: usize,
+    },
     LocalBinding(Box<LocalBinding>),
     BinaryOperation(Box<BinaryOperation>),
     UnaryOperation(Box<UnaryOperation>),
@@ -258,6 +262,9 @@ impl TreeItem for Expression {
                     ))
                 )
             }
+            Expression::RecordSelector { index, .. } => {
+                write!(f, "{}", style.paint(format!("SELECT {index}")))
+            }
             Expression::LocalBinding(x) => write!(f, "{}", style.paint(format!("LET {}", x.var))),
             Expression::BinaryOperation(x) => write!(f, "{}", style.paint(x.kind)),
             Expression::UnaryOperation(x) => write!(f, "{}", style.paint(x.kind)),
@@ -270,6 +277,7 @@ impl TreeItem for Expression {
             Expression::Direct(_) => Cow::from(vec![]),
             Expression::FunctionCall { args, .. } => Cow::from(args.clone()),
             Expression::RecordConstructor { args, .. } => Cow::from(args.clone()),
+            Expression::RecordSelector { record, .. } => Cow::from(vec![*record.clone()]),
             Expression::LocalBinding(x) => Cow::from(vec![x.bind.clone(), x.body.clone()]),
             Expression::BinaryOperation(x) => Cow::from(vec![x.lhs.clone(), x.rhs.clone()]),
             Expression::UnaryOperation(x) => Cow::from(vec![x.inner.clone()]),

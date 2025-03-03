@@ -48,7 +48,7 @@ pub fn lower(ast::TypedProgram { records, functions }: ast::TypedProgram) -> Res
 #[derive(Debug)]
 struct Lowerer {
     fresh_variable: Variable,
-    record_definitions: HashMap<String, Vec<ir::Type>>,
+    record_definitions: HashMap<String, Vec<(String, ir::Type)>>,
 }
 
 impl Lowerer {
@@ -61,7 +61,7 @@ impl Lowerer {
         for ast::Record { name, fields, .. } in records {
             let lowered_fields = fields
                 .into_iter()
-                .map(|(_, typ)| lowerer.lower_type(typ))
+                .map(|(field_name, typ)| (field_name, lowerer.lower_type(typ)))
                 .collect();
 
             lowerer.record_definitions.insert(name, lowered_fields);
@@ -297,7 +297,7 @@ impl Lowerer {
 
                 if let Some(fields) = self.record_definitions.get(&function) {
                     return Ok(ir::Expression::RecordConstructor {
-                        record_fields: fields.clone(),
+                        record_fields: fields.clone().into_iter().map(|(_, typ)| typ).collect(),
                         args: lowered_args,
                     });
                 }
@@ -307,7 +307,29 @@ impl Lowerer {
                     args: lowered_args,
                 })
             }
-            ast::ExpressionKind::RecordSelector { expr, field } => todo!(),
+            ast::ExpressionKind::RecordSelector { expr: inner, field } => {
+                let ast::Type::Record(record_name) = &inner.type_context else {
+                    unreachable!("ensured by type checker")
+                };
+
+                let fields = self
+                    .record_definitions
+                    .get(record_name)
+                    .expect("ensured by type checker");
+
+                let index = fields
+                    .into_iter()
+                    .enumerate()
+                    .find_map(|(i, (field_name, _))| (*field_name == field).then_some(i))
+                    .expect("ensured by type checker");
+
+                let record = self.lower_expression(*inner, vars)?;
+
+                Ok(ir::Expression::RecordSelector {
+                    record: Box::new(record),
+                    index,
+                })
+            }
         }
     }
 
@@ -320,7 +342,10 @@ impl Lowerer {
                 self.record_definitions
                     .get(&name)
                     .expect("ensured by type checker")
-                    .clone(),
+                    .clone()
+                    .into_iter()
+                    .map(|(_, typ)| typ)
+                    .collect(),
             ),
         }
     }

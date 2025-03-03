@@ -389,6 +389,7 @@ impl<'ctx> Codegen<'ctx> {
 
                 Ok(struct_value.as_basic_value_enum())
             }
+            ir::Expression::RecordSelector { record, index } => todo!(),
         }
     }
 

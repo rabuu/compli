@@ -138,8 +138,8 @@ pub enum ExpressionKind<C: TypeContext> {
     },
 
     RecordSelector {
-        expr: Box<Expression<C>>,
         field: Ident,
+        expr: Box<Expression<C>>,
     },
 }
 
