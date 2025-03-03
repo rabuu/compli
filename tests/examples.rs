@@ -25,3 +25,8 @@ fn approx_pi() {
 fn records() {
     run_pipeline(include_str!("../examples/records.compli"));
 }
+
+#[test]
+fn casting() {
+    run_pipeline(include_str!("../examples/casting.compli"));
+}
