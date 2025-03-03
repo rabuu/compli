@@ -389,7 +389,10 @@ impl<'ctx> Codegen<'ctx> {
 
                 Ok(struct_value.as_basic_value_enum())
             }
-            ir::Expression::RecordSelector { record, index } => todo!(),
+            ir::Expression::RecordSelector { record, index } => {
+                let record = self.compile_expression(record, bindings)?.into_struct_value();
+                Ok(self.builder.build_extract_value(record, *index as u32, "select")?)
+            }
         }
     }
 

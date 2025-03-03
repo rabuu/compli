@@ -135,8 +135,6 @@ fn build_error(err: ParseErr<String>) -> ParsingError {
 
 #[cfg(test)]
 mod tests {
-    use crate::Type;
-
     use super::*;
 
     #[test]
@@ -148,6 +146,7 @@ func foo(): int = 1 func BAr_2(_: float): bool=     true &&  false
         assert_eq!(
             parse(src).unwrap(),
             ast::Program {
+                records: vec![],
                 functions: vec![
                     ast::Function {
                         name: String::from("foo"),
@@ -157,7 +156,7 @@ func foo(): int = 1 func BAr_2(_: float): bool=     true &&  false
                             type_context: ast::NoContext,
                         },
                         params: vec![],
-                        return_type: Type::Int,
+                        return_type: ast::Type::Int,
                         name_span: Span::new(6, 9),
                     },
                     ast::Function {
@@ -179,8 +178,8 @@ func foo(): int = 1 func BAr_2(_: float): bool=     true &&  false
                             span: Span::new(53, 67),
                             type_context: ast::NoContext,
                         },
-                        params: vec![(String::from("_"), Type::Float)],
-                        return_type: Type::Bool,
+                        params: vec![(String::from("_"), ast::Type::Float)],
+                        return_type: ast::Type::Bool,
                         name_span: Span::new(26, 31),
                     }
                 ]
