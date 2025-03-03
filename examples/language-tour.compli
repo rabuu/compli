@@ -1,34 +1,93 @@
+//
+// MAIN FUNCTION
+//
+
 // Every compli program needs a `main` function.
 // It takes no arguments and returns an int that gets printed when running the program.
 def main(): int = 42
 
-// There are three main data types: int, float and bool.
-def return_float(): float = 0.5
-def return_bool(): bool = true
+//
+// DATA TYPES
+//
+
+// There are three primitive data types: int, float and bool.
+def int_value: int = 42
+def float_value: float = 0.5
+def bool_value: bool = true
+
+// You can define your own records to combine them (product types)
+rec int_and_bool = integer: int, boolean: bool
+
+// You can construct records and select their fields like so:
+def construct_record: int_and_bool = int_and_bool(1, true)
+def select_record(x: int_and_bool): int = x.integer
+
+//
+// FUNCTIONS
+//
 
 // A function consists of a list of parameters, a return type and a body expression.
-def foo(a: int, c: bool): float = 12.34
+def foo(a: int, b: bool): float = 12.34
 
-// Many common basic operations are supported.
+// It can be called like so:
+def call_the_function: float = foo(1337, false)
+
+// A constant is the same as a function,
+// the parenthesis are just optional if the function has no parameters.
+def constant: int = 1
+def call_the_constant(x: int): int = x + constant()
+
+//
+// PRIMITIVE OPERATIONS
+//
+
+// Common basic operations for primitive types are supported.
 def add(a: int, b: int): int = a + b
 def sub(a: float, b: float): float = a - b
 def gauss(n: int): int = (n * (n + 1)) / 2
 def boolean(a: bool, b: bool, c: bool): bool = !a && b || !c
+def square_root(x: float): float = sqrt(x)
 
 // You must not mix data types. The following would not work:
 // def illegal_mixup(a: int, b: float): int = a + b
+
+//
+// LET
+//
 
 // You can give names to temporary values.
 def let_example(a: int): int = let square = a * a in square + 1
 def complex_let_example(a: int): int = (
 	let b = 2 * a,
 		c = b + 1,
-		c = c + b
+		c = c + b,
+		d: int = c + 1, // You can annotate types for local bindings.
 	in
 		a + b + c
 )
+
+//
+// IF
+//
 
 // There is a basic if-then-else expression for conditional evaluation.
 def if_example(a: float, b: float): int = (
 	if a > b then 0 else 1
 )
+
+//
+// CASTING
+//
+
+// There are builtin functions to cast between primitives
+def casting_example1: bool = 1 == cast_int(true)
+def casting_example2: int = cast_int(0.5 + 0.5)
+def casting_example3: float = 2.0 * cast_float(17)
+
+//
+// TRACING
+//
+
+// Normally, only the return value of the `main` function gets printed.
+// But using the `trace` function, it is possible to print primitive values dynamically.
+def tracing_example: float = 1.0 + trace(6.0 * 6.0) // When called, this will print 36.
