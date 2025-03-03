@@ -20,3 +20,8 @@ fn fib() {
 fn approx_pi() {
     run_pipeline(include_str!("../examples/approx-pi.compli"));
 }
+
+#[test]
+fn records() {
+    run_pipeline(include_str!("../examples/records.compli"));
+}
