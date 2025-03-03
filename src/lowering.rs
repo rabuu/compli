@@ -307,6 +307,7 @@ impl Lowerer {
                     args: lowered_args,
                 })
             }
+            ast::ExpressionKind::RecordSelector { expr, field } => todo!(),
         }
     }
 

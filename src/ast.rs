@@ -136,6 +136,11 @@ pub enum ExpressionKind<C: TypeContext> {
         function: Ident,
         args: Vec<Expression<C>>,
     },
+
+    RecordSelector {
+        expr: Box<Expression<C>>,
+        field: Ident,
+    },
 }
 
 /// A unary operation
@@ -321,6 +326,9 @@ impl<C: TypeContext> TreeItem for Expression<C> {
                     style.paint(format!("CALL {function} {}", self.type_context))
                 )
             }
+            ExpressionKind::RecordSelector { field, .. } => {
+                write!(f, "{}", style.paint(format!("SELECT {field}")))
+            }
         }
     }
 
@@ -341,6 +349,7 @@ impl<C: TypeContext> TreeItem for Expression<C> {
                 Cow::from(vec![*condition.clone(), *yes.clone(), *no.clone()])
             }
             ExpressionKind::Call { args, .. } => Cow::from(args),
+            ExpressionKind::RecordSelector { expr, .. } => Cow::from(vec![*expr.clone()]),
         }
     }
 }

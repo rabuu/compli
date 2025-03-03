@@ -510,6 +510,7 @@ impl TypeChecker {
                     type_context: return_type.clone(),
                 })
             }
+            ast::ExpressionKind::RecordSelector { expr, field } => todo!(),
         }
     }
 }

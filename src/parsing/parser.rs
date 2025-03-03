@@ -48,12 +48,32 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
                 .clone()
                 .delimited_by(just(Token::ParenOpen), just(Token::ParenClose)));
 
+        let selector = atom
+            .clone()
+            .then(
+                just(Token::Dot)
+                    .ignore_then(ident.map_with_span(|e, span: Span| (e, span)))
+                    .or_not(),
+            )
+            .map(|(expr, field)| {
+                if let Some((field, field_span)) = field {
+                    let span = Span::new(expr.span.start, field_span.end);
+                    let e = ast::ExpressionKind::RecordSelector {
+                        expr: Box::new(expr),
+                        field,
+                    };
+                    ast::Expression::new(e, span, ast::NoContext)
+                } else {
+                    expr
+                }
+            });
+
         let unary = just(Token::Minus)
             .to(ast::UnaryOperation::Neg)
             .or(just(Token::Bang).to(ast::UnaryOperation::Not))
             .map_with_span(|e, span: Span| (e, span))
             .or_not()
-            .then(atom)
+            .then(selector)
             .map(|(op, inner)| {
                 if let Some((op, op_span)) = op {
                     let span = Span::new(op_span.start, inner.span.end);
@@ -227,14 +247,12 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
         .then_ignore(just(Token::Assign))
         .then(expr.clone())
         .map(
-            |((((name, name_span), params), return_type), body)| {
-                ast::Function {
-                    name,
-                    params,
-                    return_type,
-                    body,
-                    name_span,
-                }
+            |((((name, name_span), params), return_type), body)| ast::Function {
+                name,
+                params,
+                return_type,
+                body,
+                name_span,
             },
         );
 
@@ -248,12 +266,10 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
                 .separated_by(just(Token::Comma))
                 .allow_trailing(),
         )
-        .map(|((name, name_span), fields)| {
-            ast::Record {
-                name,
-                fields,
-                name_span,
-            }
+        .map(|((name, name_span), fields)| ast::Record {
+            name,
+            fields,
+            name_span,
         });
 
     enum FunctionOrRecord {
@@ -261,9 +277,13 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
         Record(ast::Record),
     }
 
-    let func_or_record = choice((func.map(FunctionOrRecord::Function), record.map(FunctionOrRecord::Record)));
+    let func_or_record = choice((
+        func.map(FunctionOrRecord::Function),
+        record.map(FunctionOrRecord::Record),
+    ));
 
-    func_or_record.repeated()
+    func_or_record
+        .repeated()
         .collect()
         .map(|items: Vec<FunctionOrRecord>| {
             let mut functions = Vec::new();
@@ -275,10 +295,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
                 }
             }
 
-            ast::Program {
-                records,
-                functions,
-            }
+            ast::Program { records, functions }
         })
         .then_ignore(end())
 }
