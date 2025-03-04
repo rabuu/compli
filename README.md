@@ -22,8 +22,8 @@ The highlights of my compiler project are:
     - Powerful type checker (allows for type-dependent lowering)
     - Nice error reports
 - Floating-point numbers
-- [Runtime](./runtime.c) with useful builtins
 - Records (product types)
+- [Runtime](./runtime.c) with useful builtins
 
 ### Language Tour & example programs
 In the [language-tour.compli](./examples/language-tour.compli) all language features are shown.
@@ -33,7 +33,7 @@ There are also some more [examples](./examples/).
 ## Building/Installation
 You need to have installed:
 - A recent Rust toolchain
-- LLVM 18 (see [llvm-sys](https://gitlab.com/taricorp/llvm-sys.rs) for more information)
+- LLVM 18 (see [llvm-sys](https://gitlab.com/taricorp/llvm-sys.rs#build-requirements) for more information)
 - Additional libraries for linking
     - I needed to install: `libz`, `libzstd`, `libffi`
 
@@ -71,9 +71,12 @@ gcc -o main runtime.c main.o
 There is also a utility [run script](./run.sh).
 
 ## Editor support (syntax highlighting)
+
+### Vim
 There are [syntax](./editor/vim/syntax/compli.vim) and [filetype detection](./editor/vim/ftdetect/compli.vim) files for Vim provided
 (which can be copied/symlinked to the `$VIMHOME/syntax/` and `$VIMHOME/ftdetect/` directories).
 
+### Emacs
 Also, there is a very basic Emacs major mode. To use it, open [compli-mode.el](./editor/emacs/compli-mode.el),
 `M-x eval-buffer`, open a compli file and then `M-x compli-mode`.
 
