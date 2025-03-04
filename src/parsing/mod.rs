@@ -141,12 +141,27 @@ mod tests {
     fn program() {
         let src = r#"
 def foo(): int = 1 def BAr_2(_: float): bool=     true &&  false
+rec a = a: int,rec b=b:a,a:a
         "#;
 
         assert_eq!(
             parse(src).unwrap(),
             ast::Program {
-                records: vec![],
+                records: vec![
+                    ast::Record {
+                        name: String::from("a"),
+                        fields: vec![(String::from("a"), ast::Type::Int)],
+                        name_span: Span::new(70, 71),
+                    },
+                    ast::Record {
+                        name: String::from("b"),
+                        fields: vec![
+                            (String::from("b"), ast::Type::Record(String::from("a"))),
+                            (String::from("a"), ast::Type::Record(String::from("a"))),
+                        ],
+                        name_span: Span::new(85, 86),
+                    }
+                ],
                 functions: vec![
                     ast::Function {
                         name: String::from("foo"),
@@ -185,6 +200,29 @@ def foo(): int = 1 def BAr_2(_: float): bool=     true &&  false
                 ]
             }
         )
+    }
+
+    #[test]
+    fn simple_record() {
+        let src = "rec foo=foo:foo";
+        assert_eq!(
+            parse(src).unwrap(),
+            ast::Program {
+                records: vec![ast::Record {
+                    name: String::from("foo"),
+                    fields: vec![(String::from("foo"), ast::Type::Record(String::from("foo")))],
+                    name_span: Span::new(4, 7),
+                }],
+                functions: vec![]
+            }
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn empty_record() {
+        let src = "rec foo =";
+        parse(src).unwrap();
     }
 
     #[test]
