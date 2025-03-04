@@ -15,7 +15,9 @@ mod lowering;
 mod parsing;
 mod type_checking;
 
+pub use ast::{TypedProgram as TypedAst, UntypedProgram as UntypedAst};
 pub use codegen::{compile, CodegenError};
+pub use ir::Program as IntermediateRepresentation;
 pub use lowering::{lower, LoweringError};
 pub use parsing::{parse, ParsingError};
 pub use type_checking::{type_check, TypeCheckError};

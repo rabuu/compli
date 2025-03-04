@@ -1,10 +1,10 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use miette::{Diagnostic, Report, Result};
 use thiserror::Error;
 
-use clap::{Parser, ValueEnum};
+use clap::{Parser, Subcommand};
 
 use tracing::level_filters::LevelFilter;
 use tracing::{info, warn};
@@ -13,49 +13,54 @@ use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
 use inkwell::context::Context;
+use inkwell::module::Module;
 use inkwell::targets::{
     FileType, InitializationConfig, Target, TargetMachine, TargetMachineOptions,
 };
 
-use compli::{
-    compile, lower, parse, type_check, CodegenError, LoweringError, ParsingError, TypeCheckError,
-};
-
 #[derive(Debug, Parser)]
 #[command(version, about = None, long_about = None)]
-#[command(propagate_version = true)]
 struct CliArgs {
-    /// Path to the source code file
-    input_file: PathBuf,
-
-    /// Path to the output file
-    #[arg(short, long)]
-    output_file: Option<PathBuf>,
-
-    /// Execution mode
-    #[arg(value_enum)]
-    #[arg(short, long)]
-    #[arg(default_value_t = ExecutionMode::Compile)]
-    mode: ExecutionMode,
+    #[command(subcommand)]
+    mode: Mode,
 
     /// Don't log progress
     #[arg(short, long)]
     quiet: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-enum ExecutionMode {
-    /// Compile the source code to machine code
-    Compile,
+#[derive(Debug, Subcommand)]
+enum Mode {
+    /// Compile a source code file to object code
+    #[command(alias = "c")]
+    Compile {
+        /// Path to the source code file
+        input_file: PathBuf,
 
-    /// Inspect the AST of the parsed source code
-    Ast,
+        /// Path to the output file
+        #[arg(short, long)]
+        output_file: Option<PathBuf>,
 
-    /// Inspect the AST after type checking
-    TypedAst,
+        /// Compile to assembly code instead
+        #[arg(long)]
+        asm: bool,
+    },
 
-    /// Inspect the IR of the lowered AST
-    Ir,
+    /// Inspect the AST of a parsed source code file
+    InspectAst {
+        /// Path to the source code file
+        input_file: PathBuf,
+
+        /// Include type information (needs type checking)
+        #[arg(short, long)]
+        typed: bool,
+    },
+
+    /// Inspect the intermediate representation of a source code file
+    InspectIr {
+        /// Path to the source code file
+        input_file: PathBuf,
+    },
 }
 
 #[derive(Debug, Error, Diagnostic)]
@@ -81,19 +86,19 @@ enum AppError {
     BadTarget { triple: String },
 
     #[error("Failed to parse the source code file")]
-    ParsingError(#[related] Vec<ParsingError>),
+    ParsingError(#[related] Vec<compli::ParsingError>),
 
     #[error("Type checking of the source code failed")]
     #[diagnostic(transparent)]
-    TypeCheckError(#[from] TypeCheckError),
+    TypeCheckError(#[from] compli::TypeCheckError),
 
     #[error("Lowering of the AST to IR failed")]
     #[diagnostic(transparent)]
-    LoweringError(#[from] LoweringError),
+    LoweringError(#[from] compli::LoweringError),
 
     #[error("Code generation failed")]
     #[diagnostic(transparent)]
-    CodegenError(#[from] CodegenError),
+    CodegenError(#[from] compli::CodegenError),
 
     #[error("An I/O operation failed")]
     GenericIoError(#[from] std::io::Error),
@@ -120,43 +125,94 @@ fn main() -> Result<()> {
         )
         .init();
 
-    /* HANDLE INPUT */
+    match args.mode {
+        Mode::Compile {
+            input_file,
+            output_file,
+            asm,
+        } => {
+            let source = read_input_file(&input_file)?;
 
-    // read input file
-    let source = fs::read_to_string(&args.input_file).map_err(|e| AppError::BadInput {
-        file_path: args.input_file.clone(),
-        context: e.to_string(),
-    })?;
-    info!("Reading of input file {:?} was successful", args.input_file);
+            let output_file = determine_output_file(&input_file, output_file)?;
+            validate_output_file(&output_file)?;
 
-    // determine output file
-    let output_file = match args.output_file {
-        Some(file) => file,
-        None => {
-            let basename = args.input_file.file_stem().ok_or(AppError::BadInput {
-                file_path: args.input_file.clone(),
-                context: String::from("Cannot read file name properly"),
-            })?;
-            PathBuf::from(basename).with_extension("o")
+            let target_machine = initialize_llvm_target_machine()?;
+
+            let context = Context::create();
+            let module = codegen(
+                &context,
+                lower(type_check(parse(&source)?, &source)?, &source)?,
+            )?;
+
+            write_output_file(&output_file, &target_machine, &module, asm)?;
         }
-    };
+        Mode::InspectAst { input_file, typed } => {
+            let source = read_input_file(&input_file)?;
+            let ast = parse(&source)?;
 
-    // validate output file
-    if output_file.exists() && !output_file.is_file() {
-        return Err(AppError::BadOutput {
-            file_path: output_file.clone(),
-            context: Some(String::from("This is no file")),
+            if typed {
+                let typed_ast = type_check(ast, &source)?;
+                typed_ast.pretty_print().map_err(AppError::GenericIoError)?;
+            } else {
+                ast.pretty_print().map_err(AppError::GenericIoError)?;
+            }
         }
-        .into());
+        Mode::InspectIr { input_file } => {
+            let source = read_input_file(&input_file)?;
+            let ir = lower(type_check(parse(&source)?, &source)?, &source)?;
+            ir.pretty_print().map_err(AppError::GenericIoError)?;
+        }
     }
 
-    /* INITIALIZE LLVM TARGET MACHINE */
+    Ok(())
+}
 
+fn read_input_file(input_file: &PathBuf) -> Result<String, AppError> {
+    let source = fs::read_to_string(input_file).map_err(|e| AppError::BadInput {
+        file_path: input_file.clone(),
+        context: e.to_string(),
+    })?;
+    info!("Reading of input file {:?} was successful", input_file);
+
+    Ok(source)
+}
+
+fn determine_output_file(
+    input_file: &Path,
+    output_file: Option<PathBuf>,
+) -> Result<PathBuf, AppError> {
+    match output_file {
+        Some(file) => Ok(file),
+        None => {
+            let basename = input_file.file_stem().ok_or(AppError::BadInput {
+                file_path: input_file.to_path_buf(),
+                context: String::from("Cannot read file name properly"),
+            })?;
+
+            Ok(PathBuf::from(basename).with_extension("o"))
+        }
+    }
+}
+
+fn validate_output_file(output_file: &Path) -> Result<(), AppError> {
+    if output_file.exists() && !output_file.is_file() {
+        return Err(AppError::BadOutput {
+            file_path: output_file.to_path_buf(),
+            context: Some(String::from("This is no file")),
+        });
+    }
+
+    Ok(())
+}
+
+fn initialize_llvm_target_machine() -> Result<TargetMachine, AppError> {
     Target::initialize_x86(&InitializationConfig::default());
+
     let triple = TargetMachine::get_default_triple();
     let target = Target::from_triple(&triple).map_err(|_| AppError::BadTarget {
         triple: triple.to_string(),
     })?;
+
     let options = TargetMachineOptions::default();
     let target_machine = target
         .create_target_machine_from_options(&triple, options)
@@ -164,64 +220,68 @@ fn main() -> Result<()> {
             triple: triple.to_string(),
         })?;
 
-    /* RUN COMPILER PIPELINE */
+    Ok(target_machine)
+}
 
-    // helper function to build error messages
-    let wrap_with_source = |err: AppError| {
-        let report: Report = err.into();
-        report.with_source_code(source.clone())
-    };
+fn with_source(err: AppError, source: &str) -> Report {
+    let report: Report = err.into();
+    report.with_source_code(source.to_string())
+}
 
-    // run parser
-    let program = parse(&source)
+fn parse(source: &str) -> Result<compli::UntypedAst> {
+    let ast = compli::parse(source)
         .map_err(AppError::ParsingError)
-        .map_err(wrap_with_source)?;
-    info!("Parsing of source code file was successful");
+        .map_err(|err| with_source(err, source))?;
+    info!("Parsing of source code was successful");
 
-    if args.mode == ExecutionMode::Ast {
-        program.pretty_print().map_err(AppError::GenericIoError)?;
-        return Ok(());
-    }
+    Ok(ast)
+}
 
-    // run type checker
-    let program = type_check(program)
+fn type_check(ast: compli::UntypedAst, source: &str) -> Result<compli::TypedAst> {
+    let typed_ast = compli::type_check(ast)
         .map_err(AppError::TypeCheckError)
-        .map_err(wrap_with_source)?;
+        .map_err(|err| with_source(err, source))?;
     info!("Type checking was successful");
 
-    if args.mode == ExecutionMode::TypedAst {
-        program.pretty_print().map_err(AppError::GenericIoError)?;
-        return Ok(());
-    }
+    Ok(typed_ast)
+}
 
-    // run lowering
-    let program = lower(program)
+fn lower(typed_ast: compli::TypedAst, source: &str) -> Result<compli::IntermediateRepresentation> {
+    let ir = compli::lower(typed_ast)
         .map_err(AppError::LoweringError)
-        .map_err(wrap_with_source)?;
+        .map_err(|err| with_source(err, source))?;
     info!("Lowering to intermediate representation was successful");
 
-    if args.mode == ExecutionMode::Ir {
-        program.pretty_print().map_err(AppError::GenericIoError)?;
-        return Ok(());
-    }
+    Ok(ir)
+}
 
-    // run codegen
-    let context = Context::create();
-    let module = compile(&context, program).map_err(AppError::CodegenError)?;
+fn codegen(context: &Context, ir: compli::IntermediateRepresentation) -> Result<Module<'_>> {
+    let module = compli::compile(context, ir).map_err(AppError::CodegenError)?;
     info!("Code generation was successful");
 
-    /* WRITE OUTPUT FILE */
+    Ok(module)
+}
 
-    // warn if existing output file gets overwritten
+fn write_output_file(
+    output_file: &Path,
+    target_machine: &TargetMachine,
+    module: &Module,
+    asm: bool,
+) -> Result<()> {
     if output_file.exists() {
-        warn!("{:?} already exists and will be overwritten", &output_file);
+        warn!("{output_file:?} already exists and will be overwritten");
     }
 
-    // actually write output file
+    let file_type = if asm {
+        FileType::Assembly
+    } else {
+        FileType::Object
+    };
+
     target_machine
-        .write_to_file(&module, FileType::Object, &output_file)
+        .write_to_file(module, file_type, output_file)
         .map_err(|_| AppError::BadOutput {
-            file_path: output_file.clone(),
+            file_path: output_file.to_path_buf(),
             context: None,
         })?;
     info!("Creation of object file {output_file:?} was successful");

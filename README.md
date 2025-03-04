@@ -27,16 +27,16 @@ Also:
 ## Usage
 The compiler CLI supports multiple execution modes:
 ```sh
-compli INPUT-FILE # this will compile the source code
-compli INPUT-FILE --mode ast
-compli INPUT-FILE --mode typed-ast
-compli INPUT-FILE --mode ir
+compli compile INPUT-FILE
+compli inspect-ast INPUT-FILE
+compli inspect-ast INPUT-FILE --typed
+compli inspect-ir INPUT-FILE
 ```
 See `compli --help` for all options.
 
 ### Example
 ```sh
-compli main.compli
+compli compile main.compli
 gcc -o main runtime.c main.o
 ```
 
