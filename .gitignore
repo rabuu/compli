@@ -1,5 +1,6 @@
 /target
 a.out
 *.o
+*.asm
 examples/test.compli
 flake.lock
