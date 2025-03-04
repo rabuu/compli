@@ -133,7 +133,7 @@ fn main() -> Result<()> {
         } => {
             let source = read_input_file(&input_file)?;
 
-            let output_file = determine_output_file(&input_file, output_file)?;
+            let output_file = determine_output_file(&input_file, output_file, asm)?;
             validate_output_file(&output_file)?;
 
             let target_machine = initialize_llvm_target_machine()?;
@@ -180,6 +180,7 @@ fn read_input_file(input_file: &PathBuf) -> Result<String, AppError> {
 fn determine_output_file(
     input_file: &Path,
     output_file: Option<PathBuf>,
+    asm: bool,
 ) -> Result<PathBuf, AppError> {
     match output_file {
         Some(file) => Ok(file),
@@ -189,7 +190,8 @@ fn determine_output_file(
                 context: String::from("Cannot read file name properly"),
             })?;
 
-            Ok(PathBuf::from(basename).with_extension("o"))
+            let ext = if asm { "asm" } else { "o" };
+            Ok(PathBuf::from(basename).with_extension(ext))
         }
     }
 }
@@ -284,7 +286,7 @@ fn write_output_file(
             file_path: output_file.to_path_buf(),
             context: None,
         })?;
-    info!("Creation of object file {output_file:?} was successful");
+    info!("Creation of file {output_file:?} was successful");
 
     Ok(())
 }
