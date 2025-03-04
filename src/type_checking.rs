@@ -18,7 +18,7 @@ pub enum TypeCheckError {
         expected: ast::Type,
         actual: ast::Type,
 
-        #[label("expression with unexpected type")]
+        #[label("here")]
         span: Span,
     },
 
@@ -28,7 +28,7 @@ pub enum TypeCheckError {
         expected2: ast::Type,
         actual: ast::Type,
 
-        #[label("expression with unexpected type")]
+        #[label("here")]
         span: Span,
     },
 
