@@ -483,9 +483,7 @@ impl TypeChecker {
             ast::ExpressionKind::Call { function, args } => {
                 // forbid calling the main function
                 if function.as_str() == "main" {
-                    return Err(TypeCheckError::CallToMain {
-                        span: expr.span,
-                    });
+                    return Err(TypeCheckError::CallToMain { span: expr.span });
                 }
 
                 // builtin functions
