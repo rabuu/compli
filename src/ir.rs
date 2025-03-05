@@ -1,4 +1,4 @@
-//! Intermediate representation defintions
+//! Intermediate representation definitions
 //!
 //! This module defines the intermediate representation of a compli program.
 //! It is the target of the lowering step and is then used to generate LLVM IR from.
