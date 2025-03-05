@@ -9,7 +9,7 @@ use std::collections::{HashMap, HashSet};
 use miette::Diagnostic;
 use thiserror::Error;
 
-use crate::{ast, Span};
+use crate::{ast, builtin, Span};
 
 #[derive(Debug, Error, Diagnostic)]
 pub enum TypeCheckError {
@@ -241,9 +241,9 @@ impl TypeChecker {
     ) -> Result<ast::Function<ast::Type>> {
         let name = function.name.as_str();
 
-        // forbid builtin names
-        const ILLEGAL_NAMES: [&str; 4] = ["trace", "cast_int", "cast_float", "sqrt"];
-        if ILLEGAL_NAMES.contains(&name) || name.starts_with("__compli") {
+        // forbid builtin & runtime names
+        let builtin_name = builtin::BuiltinFunction::from_name(name).is_some();
+        if builtin_name || name.starts_with("__compli") {
             return Err(TypeCheckError::IllegalFunctionName {
                 name: function.name,
                 span: function.name_span,
@@ -475,8 +475,9 @@ impl TypeChecker {
             }
 
             ast::ExpressionKind::Call { function, args } => {
-                // builtin: trace function
-                if function.as_str() == "trace" {
+                // builtin functions
+                if let Some(builtin) = builtin::BuiltinFunction::from_name(function.as_str()) {
+                    // at the moment, all builtins are unary
                     if args.len() != 1 {
                         return Err(TypeCheckError::WrongNumberOfArguments {
                             expected: 1,
@@ -484,89 +485,49 @@ impl TypeChecker {
                             span: expr.span,
                         });
                     }
-
                     let mut args = args;
                     let typed_arg = self.infer_expr(args.swap_remove(0), vars)?;
                     let typ = typed_arg.type_context.clone();
 
-                    if let ast::Type::Record(_) = typ {
-                        return Err(TypeCheckError::UntracableType {
-                            typ,
-                            span: expr.span,
-                        });
-                    }
-
-                    return Ok(ast::Expression {
-                        kind: ast::ExpressionKind::Call {
-                            function,
-                            args: vec![typed_arg],
-                        },
-                        span: expr.span,
-                        type_context: typ,
-                    });
-                }
-
-                // builtin: cast_int function
-                if function.as_str() == "cast_int" {
-                    if args.len() != 1 {
-                        return Err(TypeCheckError::WrongNumberOfArguments {
-                            expected: 1,
-                            actual: args.len(),
-                            span: expr.span,
-                        });
-                    }
-
-                    let mut args = args;
-                    let typed_arg = self.infer_expr(args.swap_remove(0), vars)?;
-                    let typ = typed_arg.type_context.clone();
-                    let target = ast::Type::Int;
-
-                    match typ {
-                        ast::Type::Float | ast::Type::Bool => (),
-                        _ => {
+                    match builtin {
+                        builtin::BuiltinFunction::Trace if matches!(typ, ast::Type::Record(_)) => {
+                            return Err(TypeCheckError::UntracableType {
+                                typ,
+                                span: expr.span,
+                            });
+                        }
+                        builtin::BuiltinFunction::CastInt
+                            if !matches!(typ, ast::Type::Float | ast::Type::Bool) =>
+                        {
                             return Err(TypeCheckError::ImpossibleCast {
                                 typ,
-                                target,
+                                target: ast::Type::Int,
                                 span: expr.span,
-                            })
+                            });
                         }
-                    }
-
-                    return Ok(ast::Expression {
-                        kind: ast::ExpressionKind::Call {
-                            function,
-                            args: vec![typed_arg],
-                        },
-                        span: expr.span,
-                        type_context: target,
-                    });
-                }
-
-                // builtin: cast_float function
-                if function.as_str() == "cast_float" {
-                    if args.len() != 1 {
-                        return Err(TypeCheckError::WrongNumberOfArguments {
-                            expected: 1,
-                            actual: args.len(),
-                            span: expr.span,
-                        });
-                    }
-
-                    let mut args = args;
-                    let typed_arg = self.infer_expr(args.swap_remove(0), vars)?;
-                    let typ = typed_arg.type_context.clone();
-                    let target = ast::Type::Float;
-
-                    match typ {
-                        ast::Type::Int => (),
-                        _ => {
+                        builtin::BuiltinFunction::CastFloat if !matches!(typ, ast::Type::Int) => {
                             return Err(TypeCheckError::ImpossibleCast {
                                 typ,
-                                target,
+                                target: ast::Type::Float,
                                 span: expr.span,
-                            })
+                            });
                         }
+                        builtin::BuiltinFunction::Sqrt if !matches!(typ, ast::Type::Float) => {
+                            return Err(TypeCheckError::UnexpectedType {
+                                expected: ast::Type::Float,
+                                actual: typ,
+                                span: expr.span,
+                            });
+                        }
+                        _ => (),
                     }
+
+                    let return_type = match builtin {
+                        builtin::BuiltinFunction::Trace => typ,
+                        builtin::BuiltinFunction::CastInt => ast::Type::Int,
+                        builtin::BuiltinFunction::CastFloat => ast::Type::Float,
+                        builtin::BuiltinFunction::Sqrt => ast::Type::Float,
+                    };
 
                     return Ok(ast::Expression {
                         kind: ast::ExpressionKind::Call {
@@ -574,39 +535,7 @@ impl TypeChecker {
                             args: vec![typed_arg],
                         },
                         span: expr.span,
-                        type_context: target,
-                    });
-                }
-
-                // builtin: sqrt function
-                if function.as_str() == "sqrt" {
-                    if args.len() != 1 {
-                        return Err(TypeCheckError::WrongNumberOfArguments {
-                            expected: 1,
-                            actual: args.len(),
-                            span: expr.span,
-                        });
-                    }
-
-                    let mut args = args;
-                    let typed_arg = self.infer_expr(args.swap_remove(0), vars)?;
-                    let typ = &typed_arg.type_context;
-
-                    if *typ != ast::Type::Float {
-                        return Err(TypeCheckError::UnexpectedType {
-                            expected: ast::Type::Float,
-                            actual: typ.clone(),
-                            span: expr.span,
-                        });
-                    }
-
-                    return Ok(ast::Expression {
-                        kind: ast::ExpressionKind::Call {
-                            function,
-                            args: vec![typed_arg],
-                        },
-                        span: expr.span,
-                        type_context: ast::Type::Float,
+                        type_context: return_type,
                     });
                 }
 

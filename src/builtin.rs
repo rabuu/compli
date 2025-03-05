@@ -1,11 +1,32 @@
 //! Builtin runtime functions
 //!
-//! Here are prototype definitions for functions that exist in compli's runtime.
+//! Here are the builtin functions listed and prototype definitions
+//! for those builtin functions that exist in compli's runtime.
 
 use crate::ir::{FunctionPrototype, Type};
 use crate::Variable;
 
-pub fn all_builtins() -> [FunctionPrototype; 7] {
+#[derive(Debug)]
+pub enum BuiltinFunction {
+    Trace,
+    CastInt,
+    CastFloat,
+    Sqrt,
+}
+
+impl BuiltinFunction {
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "trace" => Some(Self::Trace),
+            "cast_int" => Some(Self::CastInt),
+            "cast_float" => Some(Self::CastFloat),
+            "sqrt" => Some(Self::Sqrt),
+            _ => None,
+        }
+    }
+}
+
+pub fn all_builtin_prototypes() -> [FunctionPrototype; 7] {
     [
         FunctionPrototype {
             name: String::from("__compli_trace_int"),

@@ -70,7 +70,7 @@ impl<'ctx> Codegen<'ctx> {
             function: entry_fn,
         };
 
-        let builtins = builtin::all_builtins();
+        let builtins = builtin::all_builtin_prototypes();
         for prototype in skeleton.iter().chain(builtins.iter()) {
             codegen.compile_prototype(prototype)?;
         }

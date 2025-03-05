@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use miette::Diagnostic;
 use thiserror::Error;
 
-use crate::{ast, ir, Span, Variable};
+use crate::{ast, builtin, ir, Span, Variable};
 
 #[derive(Debug, Error, Diagnostic)]
 pub enum LoweringError {
@@ -248,63 +248,27 @@ impl Lowerer {
                 })
             }
             ast::ExpressionKind::Call { function, args } => {
-                // builtin: trace function
-                if function.as_str() == "trace" {
-                    let function_name = match args[0].type_context {
-                        ast::Type::Int => "__compli_trace_int",
-                        ast::Type::Float => "__compli_trace_float",
-                        ast::Type::Bool => "__compli_trace_bool",
-                        ast::Type::Record(_) => unreachable!("ensured by type checker"),
+                // (unary) builtin functions
+                if let Some(builtin) = builtin::BuiltinFunction::from_name(function.as_str()) {
+                    let function_name = match builtin {
+                        builtin::BuiltinFunction::Trace => match args[0].type_context {
+                            ast::Type::Int => "__compli_trace_int",
+                            ast::Type::Float => "__compli_trace_float",
+                            ast::Type::Bool => "__compli_trace_bool",
+                            ast::Type::Record(_) => unreachable!("ensured by type checker"),
+                        },
+                        builtin::BuiltinFunction::CastInt => match args[0].type_context {
+                            ast::Type::Bool => "__compli_bool_to_int",
+                            ast::Type::Float => "__compli_float_to_int",
+                            _ => unreachable!("ensured by type checker"),
+                        },
+                        builtin::BuiltinFunction::CastFloat => match args[0].type_context {
+                            ast::Type::Int => "__compli_int_to_float",
+                            _ => unreachable!("ensured by type checker"),
+                        },
+                        builtin::BuiltinFunction::Sqrt => "__compli_sqrt",
                     }
                     .to_string();
-
-                    let mut args = args;
-                    let lowered_arg = self.lower_expression(args.swap_remove(0), vars)?;
-
-                    return Ok(ir::Expression::FunctionCall {
-                        function_name,
-                        args: vec![lowered_arg],
-                    });
-                }
-
-                // builtin: cast_int function
-                if function.as_str() == "cast_int" {
-                    let function_name = match args[0].type_context {
-                        ast::Type::Bool => "__compli_bool_to_int",
-                        ast::Type::Float => "__compli_float_to_int",
-                        _ => unreachable!("ensured by type checker"),
-                    }
-                    .to_string();
-
-                    let mut args = args;
-                    let lowered_arg = self.lower_expression(args.swap_remove(0), vars)?;
-
-                    return Ok(ir::Expression::FunctionCall {
-                        function_name,
-                        args: vec![lowered_arg],
-                    });
-                }
-
-                // builtin: cast_float function
-                if function.as_str() == "cast_float" {
-                    let function_name = match args[0].type_context {
-                        ast::Type::Int => "__compli_int_to_float",
-                        _ => unreachable!("ensured by type checker"),
-                    }
-                    .to_string();
-
-                    let mut args = args;
-                    let lowered_arg = self.lower_expression(args.swap_remove(0), vars)?;
-
-                    return Ok(ir::Expression::FunctionCall {
-                        function_name,
-                        args: vec![lowered_arg],
-                    });
-                }
-
-                // builtin: sqrt function
-                if function.as_str() == "sqrt" {
-                    let function_name = String::from("__compli_sqrt");
 
                     let mut args = args;
                     let lowered_arg = self.lower_expression(args.swap_remove(0), vars)?;
