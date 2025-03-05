@@ -29,3 +29,6 @@ llvm-sys-180 = { package = "llvm-sys", version = "180", features = ["prefer-stat
 
 # pretty printing of tree structures
 ptree = { version = "0.5.2", default-features = false }
+
+# temporary files
+tempfile = "3.17.1"
