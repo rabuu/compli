@@ -37,6 +37,8 @@ You need to have installed:
 - Additional libraries for linking
     - I needed to install: `libz`, `libzstd`, `libffi`
 
+This project is Linux-only.
+
 ### Example setup: Debian 12 (Bookworm)
 ```sh
 apt install build-essential libzstd-dev zlib1g-dev libffi-dev
@@ -52,23 +54,25 @@ cargo build
 - For Arch Linux: `pacman -S llvm18`
 
 ## Usage
-The compiler CLI supports multiple execution modes:
-```sh
-compli compile INPUT-FILE
-compli inspect-ast INPUT-FILE
-compli inspect-ast INPUT-FILE --typed
-compli inspect-ir INPUT-FILE
-```
+The compiler has multiple execution modes:
+- `compli compile main.compli` will compile the source code and automatically calls to the system C compiler to link the module with the runtime.
+This produces a `main` ELF executable.
+- `compli generate main.compli` will only generate the compiled object (or assembly) file but won't link anything.
+This produces a `main.o` object file.
+- `compli inspect-ast main.compli` will print the program's AST. With the `--typed` flag, it includes type information.
+- `compli inspect-ir main.compli` will print the intermediate representation of the program.
+
 See `compli --help` for all options.
 
 ### Example usage
 ```sh
 compli compile main.compli
-gcc -o main runtime.c main.o
 ./main
 
-# or use the shorthand script
-./run.sh main.compli
+# with manual linking
+compli generate main.compli
+gcc runtime.c main.o -o main
+./main
 ```
 
 ## Editor support (syntax highlighting)
