@@ -7,6 +7,11 @@ fn run_pipeline(src: &str) {
 }
 
 #[test]
+fn minimal() {
+    run_pipeline(include_str!("../examples/minimal.compli"));
+}
+
+#[test]
 fn language_tour() {
     run_pipeline(include_str!("../examples/language-tour.compli"));
 }
