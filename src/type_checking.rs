@@ -40,6 +40,12 @@ pub enum TypeCheckError {
         span: Span,
     },
 
+    #[error("You cannot call the `main` function")]
+    CallToMain {
+        #[label("here")]
+        span: Span,
+    },
+
     #[error("The name `{name}` can not be user-defined")]
     IllegalFunctionName {
         name: ast::Ident,
@@ -475,6 +481,13 @@ impl TypeChecker {
             }
 
             ast::ExpressionKind::Call { function, args } => {
+                // forbid calling the main function
+                if function.as_str() == "main" {
+                    return Err(TypeCheckError::CallToMain {
+                        span: expr.span,
+                    });
+                }
+
                 // builtin functions
                 if let Some(builtin) = builtin::BuiltinFunction::from_name(function.as_str()) {
                     // at the moment, all builtins are unary
