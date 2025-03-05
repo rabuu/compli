@@ -1,10 +1,11 @@
-use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::{fs, iter, process};
 
 use miette::{Diagnostic, Report, Result};
 use thiserror::Error;
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 
 use tracing::level_filters::LevelFilter;
 use tracing::{info, warn};
@@ -17,6 +18,8 @@ use inkwell::module::Module;
 use inkwell::targets::{
     FileType, InitializationConfig, Target, TargetMachine, TargetMachineOptions,
 };
+
+const RUNTIME_FILE: &str = include_str!("../runtime.c");
 
 #[derive(Debug, Parser)]
 #[command(version, about = None, long_about = None)]
@@ -31,8 +34,10 @@ struct CliArgs {
 
 #[derive(Debug, Subcommand)]
 enum Mode {
-    /// Compile a source code file to object code
-    #[command(alias = "c")]
+    /// Compile the source code to an executable (compile & link)
+    ///
+    /// This will call a system C compiler to link with the runtime.
+    #[command(alias = "com")]
     Compile {
         /// Path to the source code file
         input_file: PathBuf,
@@ -41,9 +46,24 @@ enum Mode {
         #[arg(short, long)]
         output_file: Option<PathBuf>,
 
-        /// Compile to assembly code instead
+        /// Path to a custom C compiler
         #[arg(long)]
-        asm: bool,
+        c_compiler: Option<PathBuf>,
+    },
+
+    /// Generate an object/assembly file from the source code (compile-only)
+    #[command(alias = "gen")]
+    Generate {
+        /// Path to the source code file
+        input_file: PathBuf,
+
+        /// Path to the output file
+        #[arg(short, long)]
+        output_file: Option<PathBuf>,
+
+        /// Compile to assembly code instead
+        #[arg(value_enum, short, long, default_value_t = OutputFileType::Object)]
+        filetype: OutputFileType,
     },
 
     /// Inspect the AST of a parsed source code file
@@ -61,6 +81,30 @@ enum Mode {
         /// Path to the source code file
         input_file: PathBuf,
     },
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum OutputFileType {
+    Object,
+    Assembly,
+}
+
+impl OutputFileType {
+    fn extension(&self) -> &'static str {
+        match self {
+            OutputFileType::Object => "o",
+            OutputFileType::Assembly => "asm",
+        }
+    }
+}
+
+impl From<OutputFileType> for FileType {
+    fn from(value: OutputFileType) -> Self {
+        match value {
+            OutputFileType::Object => Self::Object,
+            OutputFileType::Assembly => Self::Assembly,
+        }
+    }
 }
 
 #[derive(Debug, Error, Diagnostic)]
@@ -100,6 +144,10 @@ enum AppError {
     #[diagnostic(transparent)]
     CodegenError(#[from] compli::CodegenError),
 
+    #[error("Compiling/linking failed")]
+    #[diagnostic(help("Try to specify a custom C compiler"))]
+    CompileOrLinkError,
+
     #[error("An I/O operation failed")]
     GenericIoError(#[from] std::io::Error),
 }
@@ -129,11 +177,11 @@ fn main() -> Result<()> {
         Mode::Compile {
             input_file,
             output_file,
-            asm,
+            c_compiler,
         } => {
             let source = read_input_file(&input_file)?;
 
-            let output_file = determine_output_file(&input_file, output_file, asm)?;
+            let output_file = determine_output_file(&input_file, output_file, None)?;
             validate_output_file(&output_file)?;
 
             let target_machine = initialize_llvm_target_machine()?;
@@ -144,7 +192,47 @@ fn main() -> Result<()> {
                 lower(type_check(parse(&source)?, &source)?, &source)?,
             )?;
 
-            write_output_file(&output_file, &target_machine, &module, asm)?;
+            let tempdir = tempfile::tempdir().map_err(AppError::GenericIoError)?;
+
+            let module_path = tempdir.path().join("module.o");
+            write_module_to_file(
+                &module_path,
+                &target_machine,
+                &module,
+                OutputFileType::Object,
+            )?;
+
+            let runtime_path = tempdir.path().join("runtime.c");
+            let mut runtime_file =
+                fs::File::create(&runtime_path).map_err(AppError::GenericIoError)?;
+            write!(runtime_file, "{RUNTIME_FILE}").map_err(AppError::GenericIoError)?;
+
+            compile_runtime_and_link(
+                &module_path,
+                &runtime_path,
+                &output_file,
+                c_compiler.as_ref(),
+            )?;
+        }
+        Mode::Generate {
+            input_file,
+            output_file,
+            filetype,
+        } => {
+            let source = read_input_file(&input_file)?;
+
+            let output_file = determine_output_file(&input_file, output_file, Some(filetype))?;
+            validate_output_file(&output_file)?;
+
+            let target_machine = initialize_llvm_target_machine()?;
+
+            let context = Context::create();
+            let module = codegen(
+                &context,
+                lower(type_check(parse(&source)?, &source)?, &source)?,
+            )?;
+
+            write_module_to_file(&output_file, &target_machine, &module, filetype)?;
         }
         Mode::InspectAst { input_file, typed } => {
             let source = read_input_file(&input_file)?;
@@ -180,7 +268,7 @@ fn read_input_file(input_file: &PathBuf) -> Result<String, AppError> {
 fn determine_output_file(
     input_file: &Path,
     output_file: Option<PathBuf>,
-    asm: bool,
+    filetype: Option<OutputFileType>,
 ) -> Result<PathBuf, AppError> {
     match output_file {
         Some(file) => Ok(file),
@@ -190,8 +278,11 @@ fn determine_output_file(
                 context: String::from("Cannot read file name properly"),
             })?;
 
-            let ext = if asm { "asm" } else { "o" };
-            Ok(PathBuf::from(basename).with_extension(ext))
+            if let Some(filetype) = filetype {
+                Ok(PathBuf::from(basename).with_extension(filetype.extension()))
+            } else {
+                Ok(PathBuf::from(basename))
+            }
         }
     }
 }
@@ -264,29 +355,53 @@ fn codegen(context: &Context, ir: compli::IntermediateRepresentation) -> Result<
     Ok(module)
 }
 
-fn write_output_file(
+fn write_module_to_file(
     output_file: &Path,
     target_machine: &TargetMachine,
     module: &Module,
-    asm: bool,
+    filetype: OutputFileType,
 ) -> Result<()> {
     if output_file.exists() {
         warn!("{output_file:?} already exists and will be overwritten");
     }
 
-    let file_type = if asm {
-        FileType::Assembly
-    } else {
-        FileType::Object
-    };
-
     target_machine
-        .write_to_file(module, file_type, output_file)
+        .write_to_file(module, filetype.into(), output_file)
         .map_err(|_| AppError::BadOutput {
             file_path: output_file.to_path_buf(),
             context: None,
         })?;
-    info!("Creation of file {output_file:?} was successful");
+    info!("Generation of module file {output_file:?} was successful");
 
     Ok(())
+}
+
+fn compile_runtime_and_link(
+    module_path: &Path,
+    runtime_path: &Path,
+    output_file: &Path,
+    c_compiler: Option<&PathBuf>,
+) -> Result<(), AppError> {
+    if output_file.exists() {
+        warn!("{output_file:?} already exists and will be overwritten");
+    }
+
+    let compilers: &[PathBuf] = &["cc", "gcc", "clang"].map(PathBuf::from);
+    for compiler in iter::once(c_compiler).flatten().chain(compilers) {
+        let status = process::Command::new(compiler)
+            .arg("-o")
+            .arg(output_file)
+            .arg(runtime_path)
+            .arg(module_path)
+            .status();
+
+        if let Ok(status) = status {
+            if status.success() {
+                info!("Compiling and linking with runtime to {output_file:?} was successful");
+                return Ok(());
+            }
+        }
+    }
+
+    Err(AppError::CompileOrLinkError)
 }
