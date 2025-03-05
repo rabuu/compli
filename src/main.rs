@@ -109,7 +109,7 @@ impl From<OutputFileType> for FileType {
 
 #[derive(Debug, Error, Diagnostic)]
 enum AppError {
-    #[error("Failed to read input file: {file_path:?}")]
+    #[error("Failed to read input file {file_path:?}")]
     BadInput {
         file_path: PathBuf,
 
@@ -117,7 +117,7 @@ enum AppError {
         context: String,
     },
 
-    #[error("Couldn't write to output file: {file_path:?}")]
+    #[error("Cannot write to output file {file_path:?}")]
     BadOutput {
         file_path: PathBuf,
 
@@ -291,7 +291,7 @@ fn validate_output_file(output_file: &Path) -> Result<(), AppError> {
     if output_file.exists() && !output_file.is_file() {
         return Err(AppError::BadOutput {
             file_path: output_file.to_path_buf(),
-            context: Some(String::from("This is no file")),
+            context: Some(String::from("The specified path is no valid file")),
         });
     }
 
