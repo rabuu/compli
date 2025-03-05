@@ -12,7 +12,7 @@ On a high level, the compiler pipeline consists of:
 
 The main differences compared to the language we developed in the course are:
 - My custom language design (with major additions, see next paragraph)
-- Implementation specifics (programming language, used libraries)
+- Implementation specifics (used programming language & libraries)
 - Much higher-level intermediate representation (thanks to the `inkwell` builder)
 
 ### Language & compiler features
@@ -33,7 +33,7 @@ There are also some more [examples](./examples/).
 ## Building/Installation
 You need to have installed:
 - A recent Rust toolchain
-- LLVM 18 (see [llvm-sys](https://gitlab.com/taricorp/llvm-sys.rs#build-requirements) for more information)
+- LLVM 18 (see [llvm-sys documentation](https://gitlab.com/taricorp/llvm-sys.rs#build-requirements) for more information)
 - Additional libraries for linking
     - I needed to install: `libz`, `libzstd`, `libffi`
 
@@ -41,16 +41,15 @@ You need to have installed:
 ```sh
 apt install build-essential libzstd-dev zlib1g-dev libffi-dev
 
-wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key > /etc/apt/trusted.gpg.d/llvm-18.asc
+wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key > /etc/apt/trusted.gpg.d/llvm.asc
 echo 'deb http://apt.llvm.org/bookworm/ llvm-toolchain-bookworm-18 main' > /etc/apt/sources.list.d/llvm-18.list
 apt update
 apt install llvm-18-dev libpolly-18-dev
 
 cargo build
 ```
-For other Debian/Ubuntu versions, see <https://apt.llvm.org/>.
-
-For Arch Linux: `pacman -S llvm18`.
+- For other Debian/Ubuntu versions: see <https://apt.llvm.org/>
+- For Arch Linux: `pacman -S llvm18`
 
 ## Usage
 The compiler CLI supports multiple execution modes:
@@ -67,16 +66,18 @@ See `compli --help` for all options.
 compli compile main.compli
 gcc -o main runtime.c main.o
 ./main
+
+# or use the shorthand script
+./run.sh main.compli
 ```
-There is also a utility [run script](./run.sh).
 
 ## Editor support (syntax highlighting)
 
-### Vim
+#### Vim
 There are [syntax](./editor/vim/syntax/compli.vim) and [filetype detection](./editor/vim/ftdetect/compli.vim) files for Vim provided
 (which can be copied/symlinked to the `$VIMHOME/syntax/` and `$VIMHOME/ftdetect/` directories).
 
-### Emacs
+#### Emacs
 Also, there is a very basic Emacs major mode. To use it, open [compli-mode.el](./editor/emacs/compli-mode.el),
 `M-x eval-buffer`, open a compli file and then `M-x compli-mode`.
 
@@ -86,7 +87,7 @@ I used some awesome libraries for this compiler. The most interesting ones are:
 - [chumsky](https://github.com/zesterer/chumsky), a text parsing library that uses parser combinators
 
 Also:
-- [thiserror](https://github.com/dtolnay/thiserror) and [miette](https://github.com/zkat/miette) for error handling
+- [thiserror](https://github.com/dtolnay/thiserror) and [miette](https://github.com/zkat/miette) for error handling/reporting
 - [tracing](https://github.com/tokio-rs/tracing) for logging
 - [clap](https://github.com/clap-rs/clap) for CLI argument parsing
 - [ptree](https://gitlab.com/Noughmad/ptree) for pretty printing of AST and IR
