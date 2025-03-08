@@ -95,3 +95,4 @@ Also:
 - [tracing](https://github.com/tokio-rs/tracing) for logging
 - [clap](https://github.com/clap-rs/clap) for CLI argument parsing
 - [ptree](https://gitlab.com/Noughmad/ptree) for pretty printing of AST and IR
+- [tempfile](https://github.com/Stebalien/tempfile) for temporary files
