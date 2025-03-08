@@ -61,7 +61,7 @@ enum Mode {
         #[arg(short, long)]
         output_file: Option<PathBuf>,
 
-        /// Compile to assembly code instead
+        /// Output file type
         #[arg(value_enum, short, long, default_value_t = OutputFileType::Object)]
         filetype: OutputFileType,
     },
