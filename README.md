@@ -25,7 +25,7 @@ The highlights of my compiler project are:
 - Records (product types)
 - [Runtime](./runtime.c) with useful builtins
 
-### Language Tour & example programs
+### Language tour & example programs
 In the [language-tour.compli](./examples/language-tour.compli) all language features are shown.
 
 There are also some more [examples](./examples/).
