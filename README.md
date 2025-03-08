@@ -55,7 +55,7 @@ cargo build
 
 ## Usage
 The compiler has multiple execution modes:
-- `compli compile main.compli` will compile the source code and automatically calls to the system C compiler to link the module with the runtime.
+- `compli build main.compli` will compile the source code and automatically calls to the system C compiler to link the module with the runtime.
 This produces a `main` ELF executable.
 - `compli generate main.compli` will only generate the compiled object (or assembly) file but won't link anything.
 This produces a `main.o` object file.
@@ -66,7 +66,7 @@ See `compli --help` for all options.
 
 ### Example usage
 ```sh
-compli compile main.compli
+compli build main.compli
 ./main
 
 # with manual linking

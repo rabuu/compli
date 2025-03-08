@@ -34,11 +34,11 @@ struct CliArgs {
 
 #[derive(Debug, Subcommand)]
 enum Mode {
-    /// Compile the source code to an executable (compile & link)
+    /// Build an executable from the source code (compile & link)
     ///
     /// This will call a system C compiler to link with the runtime.
-    #[command(alias = "com")]
-    Compile {
+    #[command(alias = "b")]
+    Build {
         /// Path to the source code file
         input_file: PathBuf,
 
@@ -174,7 +174,7 @@ fn main() -> Result<()> {
         .init();
 
     match args.mode {
-        Mode::Compile {
+        Mode::Build {
             input_file,
             output_file,
             c_compiler,
