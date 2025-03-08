@@ -67,6 +67,7 @@ enum Mode {
     },
 
     /// Inspect the AST of a parsed source code file
+    #[command(alias = "ast")]
     InspectAst {
         /// Path to the source code file
         input_file: PathBuf,
@@ -77,6 +78,7 @@ enum Mode {
     },
 
     /// Inspect the intermediate representation of a source code file
+    #[command(alias = "ir")]
     InspectIr {
         /// Path to the source code file
         input_file: PathBuf,
