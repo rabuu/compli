@@ -32,7 +32,7 @@ There are also some more [examples](./examples/).
 
 ## Building/Installation
 You need to have installed:
-- A recent Rust toolchain
+- Rust toolchain (1.79+)
 - LLVM 18 (see [llvm-sys documentation](https://gitlab.com/taricorp/llvm-sys.rs#build-requirements) for more information)
 - Additional libraries for linking
     - I needed to install: `libz`, `libzstd`, `libffi`
