@@ -6,6 +6,7 @@ edition = "2021"
 description = "My compiler for PLI"
 readme = "README.md"
 license = "MIT"
+rust-version = "1.74.1"
 
 [dependencies]
 

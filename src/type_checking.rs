@@ -550,19 +550,20 @@ impl TypeChecker {
                     });
                 }
 
-                let (params, return_type) =
-                    match self.defined_records.get(&function) {
-                        Some(fields) => &(
-                            fields.clone().into_iter().map(|(_, typ)| typ).collect(),
-                            ast::Type::Record(function.clone()),
-                        ),
-                        None => self.prototypes.get(&function).ok_or_else(|| {
-                            TypeCheckError::NotBound {
-                                name: function.clone(),
-                                span: expr.span,
-                            }
-                        })?,
-                    };
+                let (params, return_type) = match self.defined_records.get(&function) {
+                    Some(fields) => (
+                        fields.clone().into_iter().map(|(_, typ)| typ).collect(),
+                        ast::Type::Record(function.clone()),
+                    ),
+                    None => self
+                        .prototypes
+                        .get(&function)
+                        .ok_or_else(|| TypeCheckError::NotBound {
+                            name: function.clone(),
+                            span: expr.span,
+                        })?
+                        .clone(),
+                };
 
                 if args.len() != params.len() {
                     return Err(TypeCheckError::WrongNumberOfArguments {
