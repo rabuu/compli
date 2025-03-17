@@ -72,8 +72,17 @@ pub enum TypeCheckError {
     },
 
     #[error("Parameter `{param_name}` has unknown type `{type_name}`")]
-    UnknownTypeInFunctionDefinition {
+    UnknownParameterType {
         param_name: ast::Ident,
+        type_name: ast::Ident,
+
+        #[label("in this definition")]
+        span: Span,
+    },
+
+    #[error("The function `{function_name}` has an unknown return type `{type_name}`")]
+    UnknownReturnType {
+        function_name: ast::Ident,
         type_name: ast::Ident,
 
         #[label("in this definition")]
@@ -101,7 +110,7 @@ pub enum TypeCheckError {
     #[diagnostic(help(
         "A record must be defined before it can be used in another record definition"
     ))]
-    UnknownTypeInRecordDefinition {
+    UnknownRecordFieldType {
         field_name: ast::Ident,
         type_name: ast::Ident,
 
@@ -202,7 +211,7 @@ fn check_record_definitions(
 
             if let ast::Type::Record(name) = field_type {
                 if !defined_records.contains_key(name) {
-                    return Err(TypeCheckError::UnknownTypeInRecordDefinition {
+                    return Err(TypeCheckError::UnknownRecordFieldType {
                         field_name: field_name.clone(),
                         type_name: name.clone(),
                         span: record.name_span,
@@ -273,12 +282,22 @@ impl TypeChecker {
         for (param_name, param_type) in &function.params {
             if let ast::Type::Record(name) = param_type {
                 if !self.defined_records.contains_key(name) {
-                    return Err(TypeCheckError::UnknownTypeInFunctionDefinition {
+                    return Err(TypeCheckError::UnknownParameterType {
                         param_name: param_name.clone(),
                         type_name: name.clone(),
                         span: function.name_span,
                     });
                 }
+            }
+        }
+
+        if let ast::Type::Record(name) = &function.return_type {
+            if !self.defined_records.contains_key(name) {
+                return Err(TypeCheckError::UnknownReturnType {
+                    function_name: function.name,
+                    type_name: name.clone(),
+                    span: function.name_span,
+                });
             }
         }
 
