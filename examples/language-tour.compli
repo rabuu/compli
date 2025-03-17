@@ -1,10 +1,26 @@
+// -------------------------
+// | COMPLI: LANGUAGE TOUR |
+// -------------------------
+//
+// Print the AST of this file:
+//   $ compli inspect-ast language-tour.compli [--typed]
+// Print the lowered IR of this file:
+//   $ compli inspect-ir language-tour.compli 
+// Run the whole compiler pipeline to generate an object file (not yet linked):
+//   $ compli generate language-tour.compli
+// Run the whole compiler pipeline and link it to an executable:
+//   $ compli build language-tour.compli
+//
+// One great feature of compli are the rather pretty error reports.
+// Try and mess with this source file and introduce some syntax or type bugs.
+
 //
 // MAIN FUNCTION
 //
 
 // Every compli program needs a `main` function.
 // It takes no arguments and returns an int that gets printed when running the program.
-def main(): int = 42
+def main: int = 42
 
 //
 // DATA TYPES
@@ -16,26 +32,27 @@ def float_value: float = 0.5
 def bool_value: bool = true
 
 // You can define your own records to combine them (product types)
-rec int_and_bool = integer: int, boolean: bool
+rec some_record = a: int, b: bool
 
 // You can construct records and select their fields like so:
-def construct_record: int_and_bool = int_and_bool(1, true)
-def select_record(x: int_and_bool): int = x.integer
+def construct_record: some_record = some_record(1, true)
+def select_from_record(r: some_record): int = r.a
 
 //
 // FUNCTIONS
 //
 
-// A function consists of a list of parameters, a return type and a body expression.
+// A function consists of a name, a list of parameters, a return type and a body expression.
 def foo(a: int, b: bool): float = 12.34
 
-// It can be called like so:
-def call_the_function: float = foo(1337, false)
+// The parenthesis are optional if there are no parameters.
+// The following two definitions are equivalent:
+def with_parens(): int = 0
+def without_parens: int = 0
 
-// A constant is the same as a function,
-// the parenthesis are just optional if the function has no parameters.
-def constant: int = 1
-def call_the_constant(x: int): int = x + constant()
+// Functions can be called like so:
+def call_the_function: float = foo(1337, false)
+def call_the_constant: int = without_parens()
 
 //
 // PRIMITIVE OPERATIONS
@@ -57,13 +74,15 @@ def square_root(x: float): float = sqrt(x)
 
 // You can give names to temporary values.
 def let_example(a: int): int = let square = a * a in square + 1
+
 def complex_let_example(a: int): int = (
 	let b = 2 * a,
 		c = b + 1,
 		c = c + b,
-		d: int = c + 1, // You can annotate types for local bindings.
-	in
-		a + b + c
+		// You can (optionally) annotate types for local bindings.
+		// This wouldn't compile if the annotated type doesn't match the inferred.
+		d: int = c + 1,
+	in a + b + c
 )
 
 //
