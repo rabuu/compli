@@ -55,7 +55,7 @@ pub enum ParsingError {
 }
 
 /// Parse compli source code into an AST
-pub fn parse(source: &str) -> Result<ast::UntypedProgram, Vec<ParsingError>> {
+pub fn parse(source: &str) -> Result<ast::UntypedAst, Vec<ParsingError>> {
     let end_of_input = Span::marker(source.chars().count());
 
     let char_iter = source
@@ -168,7 +168,7 @@ rec a = a: int,rec b=b:a,a:a
                         body: ast::Expression {
                             kind: ast::ExpressionKind::Int(1),
                             span: Span::new(18, 19),
-                            type_context: ast::NoContext,
+                            typ: ast::NoTypeContext,
                         },
                         params: vec![],
                         return_type: ast::Type::Int,
@@ -182,16 +182,16 @@ rec a = a: int,rec b=b:a,a:a
                                 lhs: Box::new(ast::Expression {
                                     kind: ast::ExpressionKind::Bool(true),
                                     span: Span::new(51, 55),
-                                    type_context: ast::NoContext,
+                                    typ: ast::NoTypeContext,
                                 }),
                                 rhs: Box::new(ast::Expression {
                                     kind: ast::ExpressionKind::Bool(false),
                                     span: Span::new(60, 65),
-                                    type_context: ast::NoContext,
+                                    typ: ast::NoTypeContext,
                                 }),
                             },
                             span: Span::new(51, 65),
-                            type_context: ast::NoContext,
+                            typ: ast::NoTypeContext,
                         },
                         params: vec![(String::from("_"), ast::Type::Float)],
                         return_type: ast::Type::Bool,

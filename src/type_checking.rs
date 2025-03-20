@@ -34,7 +34,7 @@ pub enum TypeCheckError {
 
     #[error("The name `{name}` is not bound")]
     NotBound {
-        name: ast::Ident,
+        name: String,
 
         #[label("unknown name")]
         span: Span,
@@ -48,7 +48,7 @@ pub enum TypeCheckError {
 
     #[error("The name `{name}` can not be user-defined")]
     IllegalFunctionName {
-        name: ast::Ident,
+        name: String,
 
         #[label("illegal name")]
         span: Span,
@@ -57,7 +57,7 @@ pub enum TypeCheckError {
     #[error("There is already a record with the name `{name}`")]
     #[diagnostic(help("The name is reserved for the record constructor"))]
     FunctionSameNameAsRecord {
-        name: ast::Ident,
+        name: String,
 
         #[label("function definition")]
         span: Span,
@@ -65,7 +65,7 @@ pub enum TypeCheckError {
 
     #[error("There are multiple function definitions with the name `{name}`")]
     MultipleFunctionDefinitions {
-        name: ast::Ident,
+        name: String,
 
         #[label("second definition")]
         span: Span,
@@ -73,8 +73,8 @@ pub enum TypeCheckError {
 
     #[error("Parameter `{param_name}` has unknown type `{type_name}`")]
     UnknownParameterType {
-        param_name: ast::Ident,
-        type_name: ast::Ident,
+        param_name: String,
+        type_name: String,
 
         #[label("in this definition")]
         span: Span,
@@ -82,8 +82,8 @@ pub enum TypeCheckError {
 
     #[error("The function `{function_name}` has an unknown return type `{type_name}`")]
     UnknownReturnType {
-        function_name: ast::Ident,
-        type_name: ast::Ident,
+        function_name: String,
+        type_name: String,
 
         #[label("in this definition")]
         span: Span,
@@ -100,7 +100,7 @@ pub enum TypeCheckError {
 
     #[error("There are multiple record definitions with the name `{name}`")]
     MultipleRecordDefinitions {
-        name: ast::Ident,
+        name: String,
 
         #[label("second definition")]
         span: Span,
@@ -111,8 +111,8 @@ pub enum TypeCheckError {
         "A record must be defined before it can be used in another record definition"
     ))]
     UnknownRecordFieldType {
-        field_name: ast::Ident,
-        type_name: ast::Ident,
+        field_name: String,
+        type_name: String,
 
         #[label("in this definition")]
         span: Span,
@@ -120,7 +120,7 @@ pub enum TypeCheckError {
 
     #[error("Multiple fields in one record are called `{field_name}`")]
     MultipleFieldNames {
-        field_name: ast::Ident,
+        field_name: String,
 
         #[label("in this definition")]
         span: Span,
@@ -128,7 +128,7 @@ pub enum TypeCheckError {
 
     #[error("Tried to select field `{field_name}` but expression is of type `{typ}`")]
     IllegalSelector {
-        field_name: ast::Ident,
+        field_name: String,
         typ: ast::Type,
 
         #[label("here")]
@@ -157,7 +157,7 @@ pub enum TypeCheckError {
 type Result<T> = std::result::Result<T, TypeCheckError>;
 
 /// Check and store the types of all expressions
-pub fn type_check(program: ast::UntypedProgram) -> Result<ast::TypedProgram> {
+pub fn type_check(program: ast::UntypedAst) -> Result<ast::TypedAst> {
     let prototypes = program
         .functions
         .iter()
@@ -190,7 +190,7 @@ pub fn type_check(program: ast::UntypedProgram) -> Result<ast::TypedProgram> {
 
 fn check_record_definitions(
     records: &[ast::Record],
-) -> Result<HashMap<ast::Ident, Vec<(ast::Ident, ast::Type)>>> {
+) -> Result<HashMap<String, Vec<(String, ast::Type)>>> {
     let mut defined_records = HashMap::new();
     for record in records {
         if defined_records.contains_key(&record.name) {
@@ -232,16 +232,16 @@ fn check_record_definitions(
 ///
 /// This state keeps track of function prototypes and which functions were already checked.
 struct TypeChecker {
-    prototypes: HashMap<ast::Ident, (Vec<ast::Type>, ast::Type)>,
-    defined_functions: HashSet<ast::Ident>,
+    prototypes: HashMap<String, (Vec<ast::Type>, ast::Type)>,
+    defined_functions: HashSet<String>,
 
-    defined_records: HashMap<ast::Ident, Vec<(ast::Ident, ast::Type)>>,
+    defined_records: HashMap<String, Vec<(String, ast::Type)>>,
 }
 
 impl TypeChecker {
     fn new(
-        prototypes: HashMap<ast::Ident, (Vec<ast::Type>, ast::Type)>,
-        defined_records: HashMap<ast::Ident, Vec<(ast::Ident, ast::Type)>>,
+        prototypes: HashMap<String, (Vec<ast::Type>, ast::Type)>,
+        defined_records: HashMap<String, Vec<(String, ast::Type)>>,
     ) -> Self {
         Self {
             prototypes,
@@ -252,7 +252,7 @@ impl TypeChecker {
 
     fn check_function(
         &mut self,
-        function: ast::Function<ast::NoContext>,
+        function: ast::Function<ast::NoTypeContext>,
     ) -> Result<ast::Function<ast::Type>> {
         let name = function.name.as_str();
 
@@ -305,7 +305,7 @@ impl TypeChecker {
         let typed_body = self.infer_expr(function.body, &vars)?;
         expect_type(
             &function.return_type,
-            &typed_body.type_context,
+            &typed_body.typ,
             typed_body.span,
         )?;
 
@@ -320,26 +320,26 @@ impl TypeChecker {
 
     fn infer_expr(
         &self,
-        expr: ast::Expression<ast::NoContext>,
-        vars: &HashMap<ast::Ident, ast::Type>,
+        expr: ast::Expression<ast::NoTypeContext>,
+        vars: &HashMap<String, ast::Type>,
     ) -> Result<ast::Expression<ast::Type>> {
         match expr.kind {
             ast::ExpressionKind::Int(x) => Ok(ast::Expression {
                 kind: ast::ExpressionKind::Int(x),
                 span: expr.span,
-                type_context: ast::Type::Int,
+                typ: ast::Type::Int.into(),
             }),
 
             ast::ExpressionKind::Float(x) => Ok(ast::Expression {
                 kind: ast::ExpressionKind::Float(x),
                 span: expr.span,
-                type_context: ast::Type::Float,
+                typ: ast::Type::Float.into(),
             }),
 
             ast::ExpressionKind::Bool(x) => Ok(ast::Expression {
                 kind: ast::ExpressionKind::Bool(x),
                 span: expr.span,
-                type_context: ast::Type::Bool,
+                typ: ast::Type::Bool.into(),
             }),
 
             ast::ExpressionKind::Var(x) => {
@@ -354,7 +354,7 @@ impl TypeChecker {
                 Ok(ast::Expression {
                     kind: ast::ExpressionKind::Var(x),
                     span: expr.span,
-                    type_context: typ,
+                    typ,
                 })
             }
 
@@ -365,13 +365,13 @@ impl TypeChecker {
                         expect_type_of_two(
                             &ast::Type::Int,
                             &ast::Type::Float,
-                            &arg.type_context,
+                            &arg.typ,
                             arg.span,
                         )?;
-                        arg.type_context.clone()
+                        arg.typ.clone()
                     }
                     ast::UnaryOperation::Not => {
-                        expect_type(&ast::Type::Bool, &arg.type_context, arg.span)?;
+                        expect_type(&ast::Type::Bool, &arg.typ, arg.span)?;
                         ast::Type::Bool
                     }
                 };
@@ -382,7 +382,7 @@ impl TypeChecker {
                         inner: Box::new(arg),
                     },
                     span: expr.span,
-                    type_context: typ,
+                    typ,
                 })
             }
 
@@ -397,15 +397,15 @@ impl TypeChecker {
                         expect_type_of_two(
                             &ast::Type::Int,
                             &ast::Type::Float,
-                            &typed_lhs.type_context,
+                            &typed_lhs.typ,
                             typed_lhs.span,
                         )?;
                         expect_type(
-                            &typed_lhs.type_context,
-                            &typed_rhs.type_context,
+                            &typed_lhs.typ,
+                            &typed_rhs.typ,
                             typed_rhs.span,
                         )?;
-                        typed_lhs.type_context.clone()
+                        typed_lhs.typ.clone()
                     }
                     ast::BinaryOperation::Equals
                     | ast::BinaryOperation::Less
@@ -415,19 +415,19 @@ impl TypeChecker {
                         expect_type_of_two(
                             &ast::Type::Int,
                             &ast::Type::Float,
-                            &typed_lhs.type_context,
+                            &typed_lhs.typ,
                             typed_lhs.span,
                         )?;
                         expect_type(
-                            &typed_lhs.type_context,
-                            &typed_rhs.type_context,
+                            &typed_lhs.typ,
+                            &typed_rhs.typ,
                             typed_rhs.span,
                         )?;
                         ast::Type::Bool
                     }
                     ast::BinaryOperation::And | ast::BinaryOperation::Or => {
-                        expect_type(&ast::Type::Bool, &typed_lhs.type_context, typed_lhs.span)?;
-                        expect_type(&ast::Type::Bool, &typed_rhs.type_context, typed_rhs.span)?;
+                        expect_type(&ast::Type::Bool, &typed_lhs.typ, typed_lhs.span)?;
+                        expect_type(&ast::Type::Bool, &typed_rhs.typ, typed_rhs.span)?;
                         ast::Type::Bool
                     }
                 };
@@ -439,7 +439,7 @@ impl TypeChecker {
                         rhs: Box::new(typed_rhs),
                     },
                     span: expr.span,
-                    type_context: typ,
+                    typ,
                 })
             }
 
@@ -451,15 +451,15 @@ impl TypeChecker {
                     let typed_bind = self.infer_expr(bind, &extended_vars)?;
 
                     if let Some(ref annotation) = annotation {
-                        expect_type(annotation, &typed_bind.type_context, typed_bind.span)?;
+                        expect_type(annotation, &typed_bind.typ, typed_bind.span)?;
                     }
 
-                    extended_vars.insert(var.clone(), typed_bind.type_context.clone());
+                    extended_vars.insert(var.clone(), typed_bind.typ.clone());
                     typed_binds.push((var, annotation, typed_bind));
                 }
 
                 let typed_body = self.infer_expr(*body, &extended_vars)?;
-                let typ = typed_body.type_context.clone();
+                let typ = typed_body.typ.clone();
 
                 Ok(ast::Expression {
                     kind: ast::ExpressionKind::LetIn {
@@ -467,7 +467,7 @@ impl TypeChecker {
                         body: Box::new(typed_body),
                     },
                     span: expr.span,
-                    type_context: typ,
+                    typ,
                 })
             }
 
@@ -475,18 +475,18 @@ impl TypeChecker {
                 let typed_condition = self.infer_expr(*condition, vars)?;
                 expect_type(
                     &ast::Type::Bool,
-                    &typed_condition.type_context,
+                    &typed_condition.typ,
                     typed_condition.span,
                 )?;
 
                 let typed_yes = self.infer_expr(*yes, vars)?;
                 let typed_no = self.infer_expr(*no, vars)?;
                 expect_type(
-                    &typed_yes.type_context,
-                    &typed_no.type_context,
+                    &typed_yes.typ,
+                    &typed_no.typ,
                     typed_no.span,
                 )?;
-                let typ = typed_yes.type_context.clone();
+                let typ = typed_yes.typ.clone();
 
                 Ok(ast::Expression {
                     kind: ast::ExpressionKind::IfThenElse {
@@ -495,7 +495,7 @@ impl TypeChecker {
                         no: Box::new(typed_no),
                     },
                     span: expr.span,
-                    type_context: typ,
+                    typ,
                 })
             }
 
@@ -517,7 +517,7 @@ impl TypeChecker {
                     }
                     let mut args = args;
                     let typed_arg = self.infer_expr(args.swap_remove(0), vars)?;
-                    let typ = typed_arg.type_context.clone();
+                    let typ = typed_arg.typ.clone();
 
                     match builtin {
                         builtin::BuiltinFunction::Trace if matches!(typ, ast::Type::Record(_)) => {
@@ -565,7 +565,7 @@ impl TypeChecker {
                             args: vec![typed_arg],
                         },
                         span: expr.span,
-                        type_context: return_type,
+                        typ: return_type,
                     });
                 }
 
@@ -595,7 +595,7 @@ impl TypeChecker {
                 let mut typed_args = Vec::with_capacity(args.len());
                 for (arg, param) in args.into_iter().zip(params.iter()) {
                     let typed_arg = self.infer_expr(arg, vars)?;
-                    expect_type(param, &typed_arg.type_context, typed_arg.span)?;
+                    expect_type(param, &typed_arg.typ, typed_arg.span)?;
                     typed_args.push(typed_arg);
                 }
 
@@ -605,14 +605,14 @@ impl TypeChecker {
                         args: typed_args,
                     },
                     span: expr.span,
-                    type_context: return_type.clone(),
+                    typ: return_type.clone(),
                 })
             }
             ast::ExpressionKind::RecordSelector { expr: inner, field } => {
                 let typed_inner = self.infer_expr(*inner, vars)?;
-                let inner_typ = typed_inner.type_context.clone();
+                let inner_typ = typed_inner.typ.clone();
 
-                let ast::Type::Record(name) = &typed_inner.type_context else {
+                let ast::Type::Record(name) = &typed_inner.typ else {
                     return Err(TypeCheckError::IllegalSelector {
                         field_name: field,
                         typ: inner_typ,
@@ -644,7 +644,7 @@ impl TypeChecker {
                         field,
                     },
                     span: expr.span,
-                    type_context: typ.clone(),
+                    typ: typ.clone(),
                 })
             }
         }

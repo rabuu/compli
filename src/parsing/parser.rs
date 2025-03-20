@@ -11,7 +11,7 @@ use super::ParseErr;
 use crate::{ast, Span};
 
 /// Parse tokens into an AST
-pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Token>> + Clone {
+pub fn parser() -> impl Parser<Token, ast::UntypedAst, Error = ParseErr<Token>> + Clone {
     let ident = select! { Token::Ident(ident) => ident }.labelled("identifier");
 
     let typ = choice((
@@ -43,7 +43,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
         let atom = val
             .or(call)
             .or(var)
-            .map_with_span(|kind, span: Span| ast::Expression::new(kind, span, ast::NoContext))
+            .map_with_span(|kind, span: Span| ast::Expression::new(kind, span, ast::NoTypeContext))
             .or(expr
                 .clone()
                 .delimited_by(just(Token::ParenOpen), just(Token::ParenClose)));
@@ -61,7 +61,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
                     expr: Box::new(expr),
                     field,
                 };
-                ast::Expression::new(e, span, ast::NoContext)
+                ast::Expression::new(e, span, ast::NoTypeContext)
             });
 
         let unary = just(Token::Minus)
@@ -77,7 +77,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
                         op,
                         inner: Box::new(inner),
                     };
-                    ast::Expression::new(e, span, ast::NoContext)
+                    ast::Expression::new(e, span, ast::NoTypeContext)
                 } else {
                     inner
                 }
@@ -99,7 +99,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
                     lhs: Box::new(lhs),
                     rhs: Box::new(rhs),
                 };
-                ast::Expression::new(e, span, ast::NoContext)
+                ast::Expression::new(e, span, ast::NoTypeContext)
             });
 
         let sum_or_diff = prod_or_quot
@@ -118,7 +118,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
                     lhs: Box::new(lhs),
                     rhs: Box::new(rhs),
                 };
-                ast::Expression::new(e, span, ast::NoContext)
+                ast::Expression::new(e, span, ast::NoTypeContext)
             });
 
         let comparison = sum_or_diff
@@ -141,7 +141,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
                     lhs: Box::new(lhs),
                     rhs: Box::new(rhs),
                 };
-                ast::Expression::new(e, span, ast::NoContext)
+                ast::Expression::new(e, span, ast::NoTypeContext)
             });
 
         let and = comparison
@@ -159,7 +159,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
                     lhs: Box::new(lhs),
                     rhs: Box::new(rhs),
                 };
-                ast::Expression::new(e, span, ast::NoContext)
+                ast::Expression::new(e, span, ast::NoTypeContext)
             });
 
         let or = and
@@ -177,7 +177,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
                     lhs: Box::new(lhs),
                     rhs: Box::new(rhs),
                 };
-                ast::Expression::new(e, span, ast::NoContext)
+                ast::Expression::new(e, span, ast::NoTypeContext)
             });
 
         let term = or.labelled("term");
@@ -196,7 +196,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
                     yes: Box::new(yes),
                     no: Box::new(no),
                 };
-                ast::Expression::new(e, span, ast::NoContext)
+                ast::Expression::new(e, span, ast::NoTypeContext)
             });
 
         let let_in = just(Token::KwLet)
@@ -222,7 +222,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
                     binds,
                     body: Box::new(body),
                 };
-                ast::Expression::new(e, span, ast::NoContext)
+                ast::Expression::new(e, span, ast::NoTypeContext)
             });
 
         choice((if_then_else, let_in, term))
@@ -274,7 +274,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
         });
 
     enum FunctionOrRecord {
-        Function(ast::Function<ast::NoContext>),
+        Function(ast::Function<ast::NoTypeContext>),
         Record(ast::Record),
     }
 

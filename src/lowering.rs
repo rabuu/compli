@@ -37,7 +37,7 @@ pub enum LoweringError {
 type Result<T> = std::result::Result<T, LoweringError>;
 
 /// Turn the AST (with type information) into IR
-pub fn lower(ast::TypedProgram { records, functions }: ast::TypedProgram) -> Result<ir::Program> {
+pub fn lower(ast::TypedAst { records, functions }: ast::TypedAst) -> Result<ir::Program> {
     let mut lowerer = Lowerer::new(records);
     lowerer.lower_program(functions)
 }
@@ -108,7 +108,7 @@ impl Lowerer {
     }
 
     fn lower_function(&mut self, func: ast::Function<ast::Type>) -> Result<ir::FunctionDefinition> {
-        let param_vars: Vec<(ast::Ident, Variable, ast::Type)> = func
+        let param_vars: Vec<(String, Variable, ast::Type)> = func
             .params
             .into_iter()
             .map(|(arg, typ)| (arg, self.fresh_variable(), typ))
@@ -137,7 +137,7 @@ impl Lowerer {
     fn lower_expression(
         &mut self,
         expr: ast::Expression<ast::Type>,
-        vars: &HashMap<ast::Ident, Variable>,
+        vars: &HashMap<String, Variable>,
     ) -> Result<ir::Expression> {
         match expr.kind {
             ast::ExpressionKind::Int(i) => Ok(ir::Expression::Direct(ir::Value::Integer(i as i32))),
@@ -152,7 +152,7 @@ impl Lowerer {
                     span: expr.span,
                 }),
             ast::ExpressionKind::Unary { op, inner } => {
-                let float_mode = inner.type_context == ast::Type::Float;
+                let float_mode = inner.typ == ast::Type::Float;
 
                 let arg = self.lower_expression(*inner, vars)?;
                 Ok(ir::Expression::UnaryOperation {
@@ -165,7 +165,7 @@ impl Lowerer {
                 })
             }
             ast::ExpressionKind::Binary { op: kind, lhs, rhs } => {
-                let f = lhs.type_context == ast::Type::Float;
+                let f = lhs.typ == ast::Type::Float;
 
                 let lhs = self.lower_expression(*lhs, vars)?;
                 let rhs = self.lower_expression(*rhs, vars)?;
@@ -226,7 +226,7 @@ impl Lowerer {
                     let rest = ast::Expression {
                         kind: ast::ExpressionKind::LetIn { binds, body },
                         span: expr.span,
-                        type_context: expr.type_context,
+                        typ: expr.typ,
                     };
                     let rest = self.lower_expression(rest, &extended_vars)?;
 
@@ -238,7 +238,7 @@ impl Lowerer {
                 }
             }
             ast::ExpressionKind::IfThenElse { condition, yes, no } => {
-                let typ = self.lower_type(yes.type_context.clone());
+                let typ = self.lower_type(yes.typ.clone());
 
                 Ok(ir::Expression::Conditional {
                     condition: Box::new(self.lower_expression(*condition, vars)?),
@@ -251,18 +251,18 @@ impl Lowerer {
                 // (unary) builtin functions
                 if let Some(builtin) = builtin::BuiltinFunction::from_name(function.as_str()) {
                     let function_name = match builtin {
-                        builtin::BuiltinFunction::Trace => match args[0].type_context {
+                        builtin::BuiltinFunction::Trace => match args[0].typ {
                             ast::Type::Int => "__compli_trace_int",
                             ast::Type::Float => "__compli_trace_float",
                             ast::Type::Bool => "__compli_trace_bool",
                             ast::Type::Record(_) => unreachable!("ensured by type checker"),
                         },
-                        builtin::BuiltinFunction::CastInt => match args[0].type_context {
+                        builtin::BuiltinFunction::CastInt => match args[0].typ {
                             ast::Type::Bool => "__compli_bool_to_int",
                             ast::Type::Float => "__compli_float_to_int",
                             _ => unreachable!("ensured by type checker"),
                         },
-                        builtin::BuiltinFunction::CastFloat => match args[0].type_context {
+                        builtin::BuiltinFunction::CastFloat => match args[0].typ {
                             ast::Type::Int => "__compli_int_to_float",
                             _ => unreachable!("ensured by type checker"),
                         },
@@ -297,7 +297,7 @@ impl Lowerer {
                 })
             }
             ast::ExpressionKind::RecordSelector { expr: inner, field } => {
-                let ast::Type::Record(record_name) = &inner.type_context else {
+                let ast::Type::Record(record_name) = &inner.typ else {
                     unreachable!("ensured by type checker")
                 };
 
