@@ -238,4 +238,17 @@ rec a = a: int,rec b=b:a,a:a
         let src = "def foo(): int = 1 + 2)";
         parse(src).unwrap();
     }
+
+    #[test]
+    fn unit_record() {
+        let src = "rec foo";
+        parse(src).unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn unit_record_wrong() {
+        let src = "rec foo =";
+        parse(src).unwrap();
+    }
 }

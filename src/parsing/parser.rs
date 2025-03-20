@@ -255,18 +255,21 @@ pub fn parser() -> impl Parser<Token, ast::UntypedProgram, Error = ParseErr<Toke
 
     let record = just(Token::KwRec)
         .ignore_then(ident.map_with_span(|name, span: Span| (name, span)))
-        .then_ignore(just(Token::Assign))
         .then(
-            ident
-                .then_ignore(just(Token::Colon))
-                .then(typ)
-                .separated_by(just(Token::Comma))
-                .allow_trailing()
-                .at_least(1),
+            just(Token::Assign)
+                .ignore_then(
+                    ident
+                        .then_ignore(just(Token::Colon))
+                        .then(typ)
+                        .separated_by(just(Token::Comma))
+                        .allow_trailing()
+                        .at_least(1),
+                )
+                .or_not(),
         )
         .map(|((name, name_span), fields)| ast::Record {
             name,
-            fields,
+            fields: fields.unwrap_or_default(),
             name_span,
         });
 
