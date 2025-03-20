@@ -251,7 +251,7 @@ impl TreeItem for Expression {
                 write!(f, "{}", style.paint(format!("SELECT {index}")))
             }
             Expression::LocalBinding { var, .. } => {
-                write!(f, "{}", style.paint(format!("LET {var}")))
+                write!(f, "{}", style.paint(format!("LOCAL {var}")))
             }
             Expression::BinaryOperation { kind, .. } => write!(f, "{}", style.paint(kind)),
             Expression::UnaryOperation { kind, .. } => write!(f, "{}", style.paint(kind)),
