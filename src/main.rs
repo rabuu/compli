@@ -119,6 +119,10 @@ enum AppError {
         context: String,
     },
 
+    #[error("Cannot determine output file name (source file has no .compli extension)")]
+    #[diagnostic(help("Provide an output file name manually with the -o flag"))]
+    CantDetermineOutputFile,
+
     #[error("Cannot write to output file {file_path:?}")]
     BadOutput {
         file_path: PathBuf,
@@ -181,12 +185,10 @@ fn main() -> Result<()> {
             output_file,
             c_compiler,
         } => {
-            let source = read_input_file(&input_file)?;
-
             let output_file = determine_output_file(&input_file, output_file, None)?;
-            validate_output_file(&output_file)?;
-
             let target_machine = initialize_llvm_target_machine()?;
+
+            let source = read_input_file(&input_file)?;
 
             let context = Context::create();
             let module = codegen(
@@ -221,12 +223,10 @@ fn main() -> Result<()> {
             output_file,
             filetype,
         } => {
-            let source = read_input_file(&input_file)?;
-
             let output_file = determine_output_file(&input_file, output_file, Some(filetype))?;
-            validate_output_file(&output_file)?;
-
             let target_machine = initialize_llvm_target_machine()?;
+
+            let source = read_input_file(&input_file)?;
 
             let context = Context::create();
             let module = codegen(
@@ -272,24 +272,25 @@ fn determine_output_file(
     output_file: Option<PathBuf>,
     filetype: Option<OutputFileType>,
 ) -> Result<PathBuf, AppError> {
-    match output_file {
-        Some(file) => Ok(file),
-        None => {
-            let basename = input_file.file_stem().ok_or(AppError::BadInput {
-                file_path: input_file.to_path_buf(),
-                context: String::from("Cannot read file name properly"),
-            })?;
-
-            if let Some(filetype) = filetype {
-                Ok(PathBuf::from(basename).with_extension(filetype.extension()))
-            } else {
-                Ok(PathBuf::from(basename))
-            }
-        }
+    if let Some(file) = output_file {
+        return Ok(file);
     }
-}
 
-fn validate_output_file(output_file: &Path) -> Result<(), AppError> {
+    match input_file.extension() {
+        Some(ext) if ext == "compli" => (),
+        _ => return Err(AppError::CantDetermineOutputFile),
+    }
+
+    let basename = input_file.file_stem().ok_or(AppError::BadInput {
+        file_path: input_file.to_path_buf(),
+        context: String::from("Cannot read input file name properly"),
+    })?;
+
+    let output_file = match filetype {
+        Some(ft) => PathBuf::from(basename).with_extension(ft.extension()),
+        None => PathBuf::from(basename),
+    };
+
     if output_file.exists() && !output_file.is_file() {
         return Err(AppError::BadOutput {
             file_path: output_file.to_path_buf(),
@@ -297,7 +298,7 @@ fn validate_output_file(output_file: &Path) -> Result<(), AppError> {
         });
     }
 
-    Ok(())
+    Ok(output_file)
 }
 
 fn initialize_llvm_target_machine() -> Result<TargetMachine, AppError> {
