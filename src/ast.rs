@@ -106,11 +106,7 @@ pub struct Expression<C: TypeContext> {
 
 impl<C: TypeContext> Expression<C> {
     pub fn new(kind: ExpressionKind<C>, span: Span, typ: C) -> Self {
-        Self {
-            kind,
-            span,
-            typ,
-        }
+        Self { kind, span, typ }
     }
 }
 

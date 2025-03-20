@@ -303,11 +303,7 @@ impl TypeChecker {
 
         let vars = function.params.iter().cloned().collect();
         let typed_body = self.infer_expr(function.body, &vars)?;
-        expect_type(
-            &function.return_type,
-            &typed_body.typ,
-            typed_body.span,
-        )?;
+        expect_type(&function.return_type, &typed_body.typ, typed_body.span)?;
 
         Ok(ast::Function {
             name: function.name,
@@ -362,12 +358,7 @@ impl TypeChecker {
                 let arg = self.infer_expr(*inner, vars)?;
                 let typ = match op {
                     ast::UnaryOperation::Neg => {
-                        expect_type_of_two(
-                            &ast::Type::Int,
-                            &ast::Type::Float,
-                            &arg.typ,
-                            arg.span,
-                        )?;
+                        expect_type_of_two(&ast::Type::Int, &ast::Type::Float, &arg.typ, arg.span)?;
                         arg.typ.clone()
                     }
                     ast::UnaryOperation::Not => {
@@ -400,11 +391,7 @@ impl TypeChecker {
                             &typed_lhs.typ,
                             typed_lhs.span,
                         )?;
-                        expect_type(
-                            &typed_lhs.typ,
-                            &typed_rhs.typ,
-                            typed_rhs.span,
-                        )?;
+                        expect_type(&typed_lhs.typ, &typed_rhs.typ, typed_rhs.span)?;
                         typed_lhs.typ.clone()
                     }
                     ast::BinaryOperation::Equals
@@ -418,11 +405,7 @@ impl TypeChecker {
                             &typed_lhs.typ,
                             typed_lhs.span,
                         )?;
-                        expect_type(
-                            &typed_lhs.typ,
-                            &typed_rhs.typ,
-                            typed_rhs.span,
-                        )?;
+                        expect_type(&typed_lhs.typ, &typed_rhs.typ, typed_rhs.span)?;
                         ast::Type::Bool
                     }
                     ast::BinaryOperation::And | ast::BinaryOperation::Or => {
@@ -473,19 +456,11 @@ impl TypeChecker {
 
             ast::ExpressionKind::IfThenElse { condition, yes, no } => {
                 let typed_condition = self.infer_expr(*condition, vars)?;
-                expect_type(
-                    &ast::Type::Bool,
-                    &typed_condition.typ,
-                    typed_condition.span,
-                )?;
+                expect_type(&ast::Type::Bool, &typed_condition.typ, typed_condition.span)?;
 
                 let typed_yes = self.infer_expr(*yes, vars)?;
                 let typed_no = self.infer_expr(*no, vars)?;
-                expect_type(
-                    &typed_yes.typ,
-                    &typed_no.typ,
-                    typed_no.span,
-                )?;
+                expect_type(&typed_yes.typ, &typed_no.typ, typed_no.span)?;
                 let typ = typed_yes.typ.clone();
 
                 Ok(ast::Expression {
