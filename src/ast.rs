@@ -304,7 +304,7 @@ impl<C: TypeContext> TreeItem for Expression<C> {
                         var_list.push_str(", ");
                     }
                 }
-                self.typ.tree_fmt(var_list, f, style)
+                self.typ.tree_fmt(format!("LET-IN {var_list}"), f, style)
             }
             ExpressionKind::IfThenElse { .. } => self.typ.tree_fmt("IF-THEN-ELSE", f, style),
             ExpressionKind::Call { function, .. } => {
