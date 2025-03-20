@@ -682,3 +682,134 @@ fn expect_type_of_two(
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parse;
+
+    #[test]
+    fn unexpected_type() {
+        let ast = parse("def foo: int = true").unwrap();
+        let err = type_check(ast).unwrap_err();
+        assert!(matches!(err, TypeCheckError::UnexpectedType { .. }));
+    }
+
+    #[test]
+    fn not_bound() {
+        let ast = parse("def foo: int = x").unwrap();
+        let err = type_check(ast).unwrap_err();
+        assert!(matches!(err, TypeCheckError::NotBound { .. }));
+    }
+
+    #[test]
+    fn call_to_main() {
+        let ast = parse("def foo: int = main()").unwrap();
+        let err = type_check(ast).unwrap_err();
+        assert!(matches!(err, TypeCheckError::CallToMain { .. }));
+    }
+
+    #[test]
+    fn illegal_function_name() {
+        for program in [
+            "def trace: int = 0",
+            "def __compli_something: int = 0",
+            "def cast_int: int = 0",
+            "def sqrt: float = 1.0",
+        ] {
+            let ast = parse(program).unwrap();
+            let err = type_check(ast).unwrap_err();
+            assert!(matches!(err, TypeCheckError::IllegalFunctionName { .. }));
+        }
+    }
+
+    #[test]
+    fn function_same_name_as_record() {
+        let ast = parse("rec record = x: int \n def record: int = 1").unwrap();
+        let err = type_check(ast).unwrap_err();
+        assert!(matches!(
+            err,
+            TypeCheckError::FunctionSameNameAsRecord { .. }
+        ));
+    }
+
+    #[test]
+    fn multiple_function_definitions() {
+        let ast = parse("def foo: int = 1 \n def foo: int = 2").unwrap();
+        let err = type_check(ast).unwrap_err();
+        assert!(matches!(
+            err,
+            TypeCheckError::MultipleFunctionDefinitions { .. }
+        ));
+    }
+
+    #[test]
+    fn unknown_parameter_type() {
+        let ast = parse("def foo(x: something): int = 0").unwrap();
+        let err = type_check(ast).unwrap_err();
+        assert!(matches!(err, TypeCheckError::UnknownParameterType { .. }));
+    }
+
+    #[test]
+    fn unknown_return_type() {
+        let ast = parse("def foo: something = something()").unwrap();
+        let err = type_check(ast).unwrap_err();
+        assert!(matches!(err, TypeCheckError::UnknownReturnType { .. }));
+    }
+
+    #[test]
+    fn wrong_number_of_arguments() {
+        let ast = parse("def foo(x: int, y: int): int = x + y \n def bar: int = foo(1)").unwrap();
+        let err = type_check(ast).unwrap_err();
+        assert!(matches!(err, TypeCheckError::WrongNumberOfArguments { .. }));
+    }
+
+    #[test]
+    fn multiple_record_definitions() {
+        let ast = parse("rec foo = x: int \n rec foo = x: float").unwrap();
+        let err = type_check(ast).unwrap_err();
+        assert!(matches!(
+            err,
+            TypeCheckError::MultipleRecordDefinitions { .. }
+        ));
+    }
+
+    #[test]
+    fn unknown_record_field_type() {
+        let ast = parse("rec foo = x: something").unwrap();
+        let err = type_check(ast).unwrap_err();
+        assert!(matches!(err, TypeCheckError::UnknownRecordFieldType { .. }));
+
+        let ast = parse("rec foo = x: bar \n rec bar = x: int").unwrap();
+        let err = type_check(ast).unwrap_err();
+        assert!(matches!(err, TypeCheckError::UnknownRecordFieldType { .. }));
+    }
+
+    #[test]
+    fn multiple_field_names() {
+        let ast = parse("rec foo = x: int, x: int").unwrap();
+        let err = type_check(ast).unwrap_err();
+        assert!(matches!(err, TypeCheckError::MultipleFieldNames { .. }));
+    }
+
+    #[test]
+    fn illegal_selector() {
+        let ast = parse("rec foo = x: int \n def bar(foo: foo): int = foo.y").unwrap();
+        let err = type_check(ast).unwrap_err();
+        assert!(matches!(err, TypeCheckError::IllegalSelector { .. }));
+    }
+
+    #[test]
+    fn untracable_type() {
+        let ast = parse("rec foo = x: int \n def bar: foo = trace(foo(1))").unwrap();
+        let err = type_check(ast).unwrap_err();
+        assert!(matches!(err, TypeCheckError::UntracableType { .. }));
+    }
+
+    #[test]
+    fn impossible_cast() {
+        let ast = parse("rec foo = x: int \n def bar: int = cast_int(foo(1))").unwrap();
+        let err = type_check(ast).unwrap_err();
+        assert!(matches!(err, TypeCheckError::ImpossibleCast { .. }));
+    }
+}
