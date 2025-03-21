@@ -268,6 +268,7 @@ impl Lowerer {
                         },
                         builtin::BuiltinFunction::Sqrt => "__compli_sqrt",
                         builtin::BuiltinFunction::InputInt => "__compli_input_int",
+                        builtin::BuiltinFunction::InputFloat => "__compli_input_float",
                     }
                     .to_string();
 

@@ -56,6 +56,16 @@ int32_t __compli_input_int() {
   exit(1);
 }
 
+float __compli_input_float() {
+  printf("Input a float: ");
+  float input;
+  if (scanf("%f", &input) == 1) {
+    return input;
+  }
+  printf("Invalid float, crash program...\n");
+  exit(1);
+}
+
 int main(void) {
   return __compli_entry();
 }

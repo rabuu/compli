@@ -13,6 +13,7 @@ pub enum BuiltinFunction {
     CastFloat,
     Sqrt,
     InputInt,
+    InputFloat,
 }
 
 impl BuiltinFunction {
@@ -23,6 +24,7 @@ impl BuiltinFunction {
             "cast_float" => Some(Self::CastFloat),
             "sqrt" => Some(Self::Sqrt),
             "input_int" => Some(Self::InputInt),
+            "input_float" => Some(Self::InputFloat),
             _ => None,
         }
     }
@@ -34,11 +36,12 @@ impl BuiltinFunction {
             BuiltinFunction::CastFloat => 1,
             BuiltinFunction::Sqrt => 1,
             BuiltinFunction::InputInt => 0,
+            BuiltinFunction::InputFloat => 0,
         }
     }
 }
 
-pub fn all_builtin_prototypes() -> [FunctionPrototype; 8] {
+pub fn all_builtin_prototypes() -> [FunctionPrototype; 9] {
     [
         FunctionPrototype {
             name: String::from("__compli_trace_int"),
@@ -79,6 +82,11 @@ pub fn all_builtin_prototypes() -> [FunctionPrototype; 8] {
             name: String::from("__compli_input_int"),
             parameters: vec![],
             return_type: Type::Int,
+        },
+        FunctionPrototype {
+            name: String::from("__compli_input_float"),
+            parameters: vec![],
+            return_type: Type::Float,
         },
     ]
 }

@@ -543,6 +543,7 @@ impl TypeChecker {
                         builtin::BuiltinFunction::CastFloat => ast::Type::Float,
                         builtin::BuiltinFunction::Sqrt => ast::Type::Float,
                         builtin::BuiltinFunction::InputInt => ast::Type::Int,
+                        builtin::BuiltinFunction::InputFloat => ast::Type::Float,
                     };
 
                     return Ok(ast::Expression {
