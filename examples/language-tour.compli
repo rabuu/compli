@@ -19,7 +19,8 @@
 //
 
 // Every compli program needs a `main` function.
-// It takes no arguments and returns an int that gets printed when running the program.
+// It takes no arguments and must return an int that represents the exit code of the program.
+// (To print stuff to the console, see the paragraph for the `trace` builtin at the end of this document.)
 def main: int = 42
 
 //
@@ -107,6 +108,7 @@ def casting_example3: float = 2.0 * cast_float(17)
 // TRACING
 //
 
-// Normally, only the return value of the `main` function gets printed.
-// But using the `trace` function, it is possible to print primitive values dynamically.
+// The `trace` builtin function is the only way for compli programs to print stuff to the terminal.
+// The function returns its input argument as is but has the side-effect of printing it.
+// Sadly, it isn't implemented for record types and only works for primitives.
 def tracing_example: float = 1.0 + trace(6.0 * 6.0) // When called, this will print 36.

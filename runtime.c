@@ -46,6 +46,5 @@ float __compli_sqrt(float x) {
 }
 
 int main(void) {
-  printf("%d\n", __compli_entry());
-  return 0;
+  return __compli_entry();
 }

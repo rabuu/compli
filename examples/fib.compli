@@ -1,6 +1,6 @@
 // Example: fib.compli
 
-def main(): int = fib(9)
+def main(): int = let _res = trace(fib(9)) in 0
 
 // Fibonacci sequence:
 // 0 1 2 3 4 5 6  7  8  9

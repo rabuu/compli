@@ -9,7 +9,8 @@ def main(): int = (
 		scaled_rect = make_scaled_rectangle(),
 		foo = scaled_rectangle(rectangle(1, 2), 3.0),
 		_ = trace(foo.scale),
-		_ = trace(foo.rect.height)
+		_ = trace(rect.width),
+		_ = trace(foo.rect.height),
 	in
-		rect.width
+		0
 )
