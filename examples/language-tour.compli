@@ -117,6 +117,7 @@ def tracing_example: float = 1.0 + trace(6.0 * 6.0) // When called, this will pr
 // INPUT
 //
 
-// The `input_int` builtin function get be called to get a single integer input from the user.
-// See the `calculator.compli` example.
+// The `input_int` and `input_float` builtin function can be called to get a single integer/float input from the user.
+// See the `calculator.compli` example for an application.
 def give_me_an_integer: int = input_int()
+def give_me_an_float: float = input_float()
