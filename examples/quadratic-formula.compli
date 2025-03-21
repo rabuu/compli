@@ -8,9 +8,6 @@ def quadratic_formula(a: float, b: float, c: float): result = (
 	in result(x1, x2)
 )
 
-def result1: result = quadratic_formula(1.0, 0.0, -25.0)
-def result2: result = quadratic_formula(2.0, 8.0, -10.0)
-
 def main: int = (
 	let r1 = quadratic_formula(1.0, 0.0, -25.0),
 		r2 = quadratic_formula(2.0, 8.0, -10.0),

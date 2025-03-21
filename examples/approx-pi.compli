@@ -1,4 +1,4 @@
-def main(): int = let _ = trace(approx_pi(1000)) in 0
+def main: int = let _ = trace(approx_pi(2000)) in 0
 
 def sum(n: int): float = (
 	if n <= 0 then 0.0

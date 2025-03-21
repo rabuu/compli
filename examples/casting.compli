@@ -1,3 +1,2 @@
-def main(): int = cast_int(float_function())
-
-def float_function(): float = cast_float(cast_int(true) + 3)
+def main: int = cast_int(float_function())
+def float_function: float = cast_float(cast_int(true) + 3)

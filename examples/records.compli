@@ -1,10 +1,10 @@
 rec rectangle = width: int, height: int
 rec scaled_rectangle = rect: rectangle, scale: float
 
-def make_rectangle(): rectangle = rectangle(10, 20)
-def make_scaled_rectangle(): scaled_rectangle = scaled_rectangle(make_rectangle(), 2.0)
+def make_rectangle: rectangle = rectangle(10, 20)
+def make_scaled_rectangle: scaled_rectangle = scaled_rectangle(make_rectangle(), 2.0)
 
-def main(): int = (
+def main: int = (
 	let rect = make_rectangle(),
 		scaled_rect = make_scaled_rectangle(),
 		foo = scaled_rectangle(rectangle(1, 2), 3.0),
