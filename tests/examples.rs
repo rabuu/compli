@@ -40,3 +40,8 @@ fn quadratic_formula() {
 fn input() {
     run_pipeline(include_str!("../examples/input.compli"));
 }
+
+#[test]
+fn calculator() {
+    run_pipeline(include_str!("../examples/calculator.compli"));
+}

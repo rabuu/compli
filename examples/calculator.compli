@@ -1,0 +1,29 @@
+// USAGE:
+// - Input two float numbers, A and B.
+// - Then input an integer OP that represents the operation
+// - The calculator will print:
+// 		- A + B   if OP is 1
+// 		- A - B   if OP is 2
+// 		- A * B   if OP is 3
+// 		- A / B   if OP is 4
+// 		- sqrt(A) if OP is 5
+// - If OP is not in [1, 5] the program will exit with code 1
+
+def main: int = (
+	let a = input_float(),
+		b = input_float(),
+		op = input_int(),
+		result: float = (
+			if      op == 1 then a + b
+			else if op == 2 then a - b
+			else if op == 3 then a * b
+			else if op == 4 then a / b
+			else if op == 5 then sqrt(a)
+			else 0.0
+		)
+	in (
+		if op >= 1 && op <= 5
+		then let _ = trace(result) in 0
+		else 1
+	)
+)
