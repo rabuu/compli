@@ -1,20 +1,22 @@
-rec result = plus: float, minus: float
+rec result = x1: float, x2: float
 
 def quadratic_formula(a: float, b: float, c: float): result = (
 	let discriminant = b*b - 4.0*a*c,
 		scale = 2.0*a,
-		plus = (-b + sqrt(discriminant)) / scale,
-		minus = (-b - sqrt(discriminant)) / scale,
-	in result(plus, minus)
+		x1 = (-b + sqrt(discriminant)) / scale,
+		x2 = (-b - sqrt(discriminant)) / scale,
+	in result(x1, x2)
 )
 
 def result1: result = quadratic_formula(1.0, 0.0, -25.0)
 def result2: result = quadratic_formula(2.0, 8.0, -10.0)
 
-def main(): int = (
-	let _ = trace(result1().plus),  //  5
-		_ = trace(result1().minus), // -5
-		_ = trace(result2().plus),  //  1
-		_ = trace(result2().minus), // -5
+def main: int = (
+	let r1 = quadratic_formula(1.0, 0.0, -25.0),
+		r2 = quadratic_formula(2.0, 8.0, -10.0),
+		_ = trace(r1.x1), //  5
+		_ = trace(r1.x2), // -5
+		_ = trace(r2.x1), //  1
+		_ = trace(r2.x2), // -5
 	in 0
 )
