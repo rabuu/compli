@@ -35,3 +35,8 @@ fn casting() {
 fn quadratic_formula() {
     run_pipeline(include_str!("../examples/quadratic-formula.compli"));
 }
+
+#[test]
+fn input() {
+    run_pipeline(include_str!("../examples/input.compli"));
+}

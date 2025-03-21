@@ -1,1 +1,5 @@
-def main: int = input_int()
+def main: int = (
+	let _ = trace(input_float()),
+		i = trace(input_int()),
+	in i
+)
