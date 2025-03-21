@@ -482,62 +482,73 @@ impl TypeChecker {
 
                 // builtin functions
                 if let Some(builtin) = builtin::BuiltinFunction::from_name(function.as_str()) {
-                    // at the moment, all builtins are unary
-                    if args.len() != 1 {
+                    if args.len() != builtin.parameter_number() {
                         return Err(TypeCheckError::WrongNumberOfArguments {
-                            expected: 1,
+                            expected: builtin.parameter_number(),
                             actual: args.len(),
                             span: expr.span,
                         });
                     }
-                    let mut args = args;
-                    let typed_arg = self.infer_expr(args.swap_remove(0), vars)?;
-                    let typ = typed_arg.typ.clone();
 
-                    match builtin {
-                        builtin::BuiltinFunction::Trace if matches!(typ, ast::Type::Record(_)) => {
-                            return Err(TypeCheckError::UntracableType {
-                                typ,
-                                span: expr.span,
-                            });
+                    let mut args = args;
+                    let mut typed_args = Vec::with_capacity(builtin.parameter_number());
+
+                    for _ in 0..builtin.parameter_number() {
+                        typed_args.push(self.infer_expr(args.remove(0), vars)?);
+                    }
+
+                    if builtin.parameter_number() == 1 {
+                        let typ = typed_args[0].typ.clone();
+                        match builtin {
+                            builtin::BuiltinFunction::Trace
+                                if matches!(typ, ast::Type::Record(_)) =>
+                            {
+                                return Err(TypeCheckError::UntracableType {
+                                    typ,
+                                    span: expr.span,
+                                });
+                            }
+                            builtin::BuiltinFunction::CastInt
+                                if !matches!(typ, ast::Type::Float | ast::Type::Bool) =>
+                            {
+                                return Err(TypeCheckError::ImpossibleCast {
+                                    typ,
+                                    target: ast::Type::Int,
+                                    span: expr.span,
+                                });
+                            }
+                            builtin::BuiltinFunction::CastFloat
+                                if !matches!(typ, ast::Type::Int) =>
+                            {
+                                return Err(TypeCheckError::ImpossibleCast {
+                                    typ,
+                                    target: ast::Type::Float,
+                                    span: expr.span,
+                                });
+                            }
+                            builtin::BuiltinFunction::Sqrt if !matches!(typ, ast::Type::Float) => {
+                                return Err(TypeCheckError::UnexpectedType {
+                                    expected: ast::Type::Float,
+                                    actual: typ,
+                                    span: expr.span,
+                                });
+                            }
+                            _ => (),
                         }
-                        builtin::BuiltinFunction::CastInt
-                            if !matches!(typ, ast::Type::Float | ast::Type::Bool) =>
-                        {
-                            return Err(TypeCheckError::ImpossibleCast {
-                                typ,
-                                target: ast::Type::Int,
-                                span: expr.span,
-                            });
-                        }
-                        builtin::BuiltinFunction::CastFloat if !matches!(typ, ast::Type::Int) => {
-                            return Err(TypeCheckError::ImpossibleCast {
-                                typ,
-                                target: ast::Type::Float,
-                                span: expr.span,
-                            });
-                        }
-                        builtin::BuiltinFunction::Sqrt if !matches!(typ, ast::Type::Float) => {
-                            return Err(TypeCheckError::UnexpectedType {
-                                expected: ast::Type::Float,
-                                actual: typ,
-                                span: expr.span,
-                            });
-                        }
-                        _ => (),
                     }
 
                     let return_type = match builtin {
-                        builtin::BuiltinFunction::Trace => typ,
+                        builtin::BuiltinFunction::Trace => typed_args[0].typ.clone(),
                         builtin::BuiltinFunction::CastInt => ast::Type::Int,
                         builtin::BuiltinFunction::CastFloat => ast::Type::Float,
                         builtin::BuiltinFunction::Sqrt => ast::Type::Float,
+                        builtin::BuiltinFunction::InputInt => ast::Type::Int,
                     };
 
                     return Ok(ast::Expression {
                         kind: ast::ExpressionKind::Call {
                             function,
-                            args: vec![typed_arg],
+                            args: typed_args,
                         },
                         span: expr.span,
                         typ: return_type,

@@ -112,3 +112,11 @@ def casting_example3: float = 2.0 * cast_float(17)
 // The function returns its input argument as is but has the side-effect of printing it.
 // Sadly, it isn't implemented for record types and only works for primitives.
 def tracing_example: float = 1.0 + trace(6.0 * 6.0) // When called, this will print 36.
+
+//
+// INPUT
+//
+
+// The `input_int` builtin function get be called to get a single integer input from the user.
+// See the `calculator.compli` example.
+def give_me_an_integer: int = input_int()

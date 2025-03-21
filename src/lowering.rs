@@ -248,7 +248,7 @@ impl Lowerer {
                 })
             }
             ast::ExpressionKind::Call { function, args } => {
-                // (unary) builtin functions
+                // builtin functions
                 if let Some(builtin) = builtin::BuiltinFunction::from_name(function.as_str()) {
                     let function_name = match builtin {
                         builtin::BuiltinFunction::Trace => match args[0].typ {
@@ -267,15 +267,19 @@ impl Lowerer {
                             _ => unreachable!("ensured by type checker"),
                         },
                         builtin::BuiltinFunction::Sqrt => "__compli_sqrt",
+                        builtin::BuiltinFunction::InputInt => "__compli_input_int",
                     }
                     .to_string();
 
                     let mut args = args;
-                    let lowered_arg = self.lower_expression(args.swap_remove(0), vars)?;
+                    let mut lowered_args = Vec::with_capacity(builtin.parameter_number());
+                    for _ in 0..builtin.parameter_number() {
+                        lowered_args.push(self.lower_expression(args.remove(0), vars)?);
+                    }
 
                     return Ok(ir::Expression::FunctionCall {
                         function_name,
-                        args: vec![lowered_arg],
+                        args: lowered_args,
                     });
                 }
 

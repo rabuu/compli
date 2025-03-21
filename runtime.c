@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 extern int32_t __compli_entry();
 
@@ -43,6 +44,16 @@ float __compli_sqrt(float x) {
     diff = root - last;
   } while (diff > MINDIFF || diff < -MINDIFF);
   return root;
+}
+
+int32_t __compli_input_int() {
+  printf("Input an integer: ");
+  int32_t input;
+  if (scanf("%d", &input) == 1) {
+    return input;
+  }
+  printf("Invalid integer, crash program...\n");
+  exit(1);
 }
 
 int main(void) {
