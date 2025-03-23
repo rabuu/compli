@@ -263,7 +263,7 @@ impl<'src, C: TypeContext> TreeItem for Function<'src, C> {
         let mut fn_string = self.name.to_string();
         fn_string.push('(');
         for (i, (param, typ)) in self.params.iter().enumerate() {
-            fn_string.push_str(param);
+            fn_string.push_str(param.as_str());
             fn_string.push_str(": ");
             fn_string.push_str(&typ.to_string());
 
@@ -295,7 +295,7 @@ impl<'src, C: TypeContext> TreeItem for Expression<'src, C> {
             ExpressionKind::LetIn { binds, .. } => {
                 let mut var_list = String::new();
                 for (i, (var, _, _)) in binds.iter().enumerate() {
-                    var_list.push_str(var);
+                    var_list.push_str(var.as_str());
                     if i != binds.len() - 1 {
                         var_list.push_str(", ");
                     }
