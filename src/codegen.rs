@@ -30,7 +30,10 @@ pub enum CodegenError {
 type Result<T> = std::result::Result<T, CodegenError>;
 
 /// Compile an [inkwell]/LLVM module from a compli program
-pub fn compile(context: &Context, program: ir::Program) -> Result<Module> {
+pub fn compile<'ctx, 'src>(
+    context: &'ctx Context,
+    program: ir::Program<'src>,
+) -> Result<Module<'ctx>> {
     let mut codegen = Codegen::new(context, &program.skeleton(), &program.entry)?;
 
     for function in &program.functions {
@@ -86,7 +89,10 @@ impl<'ctx> Codegen<'ctx> {
         Ok(codegen)
     }
 
-    fn compile_prototype(&self, prototype: &ir::FunctionPrototype) -> Result<FunctionValue<'ctx>> {
+    fn compile_prototype(
+        &self,
+        prototype: &ir::FunctionPrototype,
+    ) -> Result<FunctionValue<'ctx>> {
         let ret_type = self.compile_type(&prototype.return_type);
         let param_types: Vec<BasicMetadataTypeEnum> = prototype
             .parameters
@@ -95,7 +101,9 @@ impl<'ctx> Codegen<'ctx> {
             .collect();
 
         let fn_type = ret_type.fn_type(&param_types, false);
-        Ok(self.module.add_function(&prototype.name, fn_type, None))
+        Ok(self
+            .module
+            .add_function(prototype.name.as_str(), fn_type, None))
     }
 
     fn compile_function(
@@ -104,7 +112,7 @@ impl<'ctx> Codegen<'ctx> {
     ) -> Result<FunctionValue<'ctx>> {
         self.function = self
             .module
-            .get_function(&function.prototype.name)
+            .get_function(function.prototype.name.as_str())
             .expect("Prototype missing");
 
         let mut bindings = HashMap::new();
@@ -364,7 +372,7 @@ impl<'ctx> Codegen<'ctx> {
                     let result = self.builder.build_call(func, &compiled_args, "call")?;
                     Ok(result.try_as_basic_value().unwrap_left())
                 }
-                None => Err(CodegenError::UnknownFunction(function_name.clone())),
+                None => Err(CodegenError::UnknownFunction(function_name.to_string())),
             },
             ir::Expression::RecordConstructor {
                 record_fields,
