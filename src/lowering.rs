@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use miette::Diagnostic;
 use thiserror::Error;
 
-use crate::{ast, builtin, ir, Span, Variable};
+use crate::{ast, builtin, ir, Ident, Span, Variable};
 
 #[derive(Debug, Error, Diagnostic)]
 pub enum LoweringError {
@@ -46,13 +46,13 @@ pub fn lower(ast::TypedAst { records, functions }: ast::TypedAst) -> Result<ir::
 ///
 /// This state keeps track of which variables can be used as fresh.
 #[derive(Debug)]
-struct Lowerer {
+struct Lowerer<'src> {
     fresh_variable: Variable,
-    record_definitions: HashMap<String, Vec<(String, ir::Type)>>,
+    record_definitions: HashMap<Ident<'src>, Vec<(Ident<'src>, ir::Type)>>,
 }
 
-impl Lowerer {
-    fn new(records: Vec<ast::Record>) -> Self {
+impl<'src> Lowerer<'src> {
+    fn new(records: Vec<ast::Record<'src>>) -> Self {
         let mut lowerer = Self {
             fresh_variable: Variable::default(),
             record_definitions: HashMap::default(),
@@ -70,7 +70,10 @@ impl Lowerer {
         lowerer
     }
 
-    fn lower_program(&mut self, functions: Vec<ast::Function<ast::Type>>) -> Result<ir::Program> {
+    fn lower_program(
+        &mut self,
+        functions: Vec<ast::Function<'src, ast::Type>>,
+    ) -> Result<ir::Program<'src>> {
         let mut lowered_functions = Vec::with_capacity(functions.len());
         let mut entry = None;
         for func in functions {
@@ -107,8 +110,11 @@ impl Lowerer {
         })
     }
 
-    fn lower_function(&mut self, func: ast::Function<ast::Type>) -> Result<ir::FunctionDefinition> {
-        let param_vars: Vec<(String, Variable, ast::Type)> = func
+    fn lower_function(
+        &mut self,
+        func: ast::Function<'src, ast::Type>,
+    ) -> Result<ir::FunctionDefinition<'src>> {
+        let param_vars: Vec<(Ident, Variable, ast::Type)> = func
             .params
             .into_iter()
             .map(|(arg, typ)| (arg, self.fresh_variable(), typ))
@@ -136,9 +142,9 @@ impl Lowerer {
 
     fn lower_expression(
         &mut self,
-        expr: ast::Expression<ast::Type>,
-        vars: &HashMap<String, Variable>,
-    ) -> Result<ir::Expression> {
+        expr: ast::Expression<'src, ast::Type>,
+        vars: &HashMap<Ident<'src>, Variable>,
+    ) -> Result<ir::Expression<'src>> {
         match expr.kind {
             ast::ExpressionKind::Int(i) => Ok(ir::Expression::Direct(ir::Value::Integer(i as i32))),
             ast::ExpressionKind::Float(f) => Ok(ir::Expression::Direct(ir::Value::Float(f))),
@@ -148,7 +154,7 @@ impl Lowerer {
                 .copied()
                 .map(|v| ir::Expression::Direct(ir::Value::Variable(v)))
                 .ok_or(LoweringError::VariableNotBound {
-                    variable: v,
+                    variable: v.to_string(),
                     span: expr.span,
                 }),
             ast::ExpressionKind::Unary { op, inner } => {
@@ -249,7 +255,7 @@ impl Lowerer {
             }
             ast::ExpressionKind::Call { function, args } => {
                 // builtin functions
-                if let Some(builtin) = builtin::BuiltinFunction::from_name(function.as_str()) {
+                if let Some(builtin) = builtin::BuiltinFunction::from_name(function) {
                     let function_name = match builtin {
                         builtin::BuiltinFunction::Trace => match args[0].typ {
                             ast::Type::Int => "__compli_trace_int",
@@ -270,7 +276,7 @@ impl Lowerer {
                         builtin::BuiltinFunction::InputInt => "__compli_input_int",
                         builtin::BuiltinFunction::InputFloat => "__compli_input_float",
                     }
-                    .to_string();
+                    .into();
 
                     let mut args = args;
                     let mut lowered_args = Vec::with_capacity(builtin.parameter_number());
@@ -327,7 +333,7 @@ impl Lowerer {
         }
     }
 
-    fn lower_type(&self, typ: ast::Type) -> ir::Type {
+    fn lower_type(&self, typ: ast::Type<'src>) -> ir::Type {
         match typ {
             ast::Type::Int => ir::Type::Int,
             ast::Type::Float => ir::Type::Float,
