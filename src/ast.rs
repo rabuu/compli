@@ -48,7 +48,7 @@ impl TypeContext for NoTypeContext {
 }
 
 /// A data type
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Type<'src> {
     Int,
     Float,
