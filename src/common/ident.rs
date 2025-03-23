@@ -18,3 +18,9 @@ impl fmt::Display for Ident<'_> {
         self.0.fmt(f)
     }
 }
+
+impl From<&'static str> for Ident<'_> {
+    fn from(value: &'static str) -> Self {
+        Self(value)
+    }
+}
