@@ -9,8 +9,7 @@ use std::collections::{HashMap, HashSet};
 use miette::Diagnostic;
 use thiserror::Error;
 
-use crate::{ast, builtin, Span};
-use ast::Ident;
+use crate::{ast, builtin, Ident, Span};
 
 #[derive(Debug, Error, Diagnostic)]
 pub enum TypeCheckError {
@@ -255,10 +254,9 @@ impl<'src> TypeChecker<'src> {
         &mut self,
         function: ast::Function<'src, ast::NoTypeContext>,
     ) -> Result<ast::Function<'src, ast::Type<'src>>> {
-
         // forbid builtin & runtime names
         let builtin_name = builtin::BuiltinFunction::from_name(function.name).is_some();
-        if builtin_name || function.name.starts_with("__compli") {
+        if builtin_name || function.name.as_str().starts_with("__compli") {
             return Err(TypeCheckError::IllegalFunctionName {
                 name: function.name.to_string(),
                 span: function.name_span,
@@ -477,7 +475,7 @@ impl<'src> TypeChecker<'src> {
 
             ast::ExpressionKind::Call { function, args } => {
                 // forbid calling the main function
-                if function == "main" {
+                if function.as_str() == "main" {
                     return Err(TypeCheckError::CallToMain { span: expr.span });
                 }
 
@@ -639,7 +637,11 @@ impl<'src> TypeChecker<'src> {
 }
 
 /// Assert that two types are equal
-fn expect_type<'src>(expected: &ast::Type<'src>, actual: &ast::Type<'src>, span: Span) -> Result<()> {
+fn expect_type<'src>(
+    expected: &ast::Type<'src>,
+    actual: &ast::Type<'src>,
+    span: Span,
+) -> Result<()> {
     if *actual == *expected {
         Ok(())
     } else {

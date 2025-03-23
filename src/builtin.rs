@@ -4,7 +4,7 @@
 //! for those builtin functions that exist in compli's runtime.
 
 use crate::ir::{FunctionPrototype, Type};
-use crate::Variable;
+use crate::{Ident, Variable};
 
 #[derive(Debug)]
 pub enum BuiltinFunction {
@@ -17,8 +17,8 @@ pub enum BuiltinFunction {
 }
 
 impl BuiltinFunction {
-    pub fn from_name(name: &str) -> Option<Self> {
-        match name {
+    pub fn from_name(name: Ident) -> Option<Self> {
+        match name.as_str() {
             "trace" => Some(Self::Trace),
             "cast_int" => Some(Self::CastInt),
             "cast_float" => Some(Self::CastFloat),
