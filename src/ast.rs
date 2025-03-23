@@ -281,7 +281,7 @@ impl<'src, C: TypeContext> TreeItem for Function<'src, C> {
     }
 }
 
-impl<'src, C: TypeContext> TreeItem for Expression<'src, C> {
+impl<C: TypeContext> TreeItem for Expression<'_, C> {
     type Child = Self;
 
     fn write_self<W: io::Write>(&self, f: &mut W, style: &Style) -> io::Result<()> {

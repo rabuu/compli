@@ -30,9 +30,9 @@ pub enum CodegenError {
 type Result<T> = std::result::Result<T, CodegenError>;
 
 /// Compile an [inkwell]/LLVM module from a compli program
-pub fn compile<'ctx, 'src>(
+pub fn compile<'ctx>(
     context: &'ctx Context,
-    program: ir::Program<'src>,
+    program: ir::Program,
 ) -> Result<Module<'ctx>> {
     let mut codegen = Codegen::new(context, &program.skeleton(), &program.entry)?;
 

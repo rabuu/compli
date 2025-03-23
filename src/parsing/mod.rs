@@ -44,7 +44,7 @@ pub enum ParsingError {
     },
 }
 
-pub fn lex<'src>(source: &'src str) -> Result<Vec<(Token<'src>, Span)>, Vec<ParsingError>> {
+pub fn lex(source: &str) -> Result<Vec<(Token, Span)>, Vec<ParsingError>> {
     let (tokens, errs) = lexer::lexer()
         .parse(source.map_span(Into::into))
         .into_output_errors();
@@ -91,7 +91,7 @@ fn build_error(err: Rich<String, Span>) -> ParsingError {
                 Some(found) => found.to_string(),
             };
 
-            let expected = if expected.len() == 0 {
+            let expected = if expected.is_empty() {
                 None
             } else {
                 let toks: Vec<_> = expected.iter().map(ToString::to_string).collect();

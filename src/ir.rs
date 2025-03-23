@@ -226,7 +226,7 @@ impl<'src> TreeItem for FunctionDefinition<'src> {
     }
 }
 
-impl<'src> TreeItem for Expression<'src> {
+impl TreeItem for Expression<'_> {
     type Child = Self;
 
     fn write_self<W: io::Write>(&self, f: &mut W, style: &ptree::Style) -> io::Result<()> {

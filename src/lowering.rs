@@ -127,7 +127,7 @@ impl<'src> Lowerer<'src> {
             .collect();
 
         let prototype = ir::FunctionPrototype {
-            name: func.name.clone(),
+            name: func.name,
             parameters: param_vars
                 .into_iter()
                 .map(|(_, var, typ)| (var, self.lower_type(typ)))
@@ -244,7 +244,7 @@ impl<'src> Lowerer<'src> {
                 }
             }
             ast::ExpressionKind::IfThenElse { condition, yes, no } => {
-                let typ = self.lower_type(yes.typ.clone());
+                let typ = self.lower_type(yes.typ);
 
                 Ok(ir::Expression::Conditional {
                     condition: Box::new(self.lower_expression(*condition, vars)?),

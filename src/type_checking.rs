@@ -157,7 +157,7 @@ pub enum TypeCheckError {
 type Result<T> = std::result::Result<T, TypeCheckError>;
 
 /// Check and store the types of all expressions
-pub fn type_check<'src>(program: ast::UntypedAst<'src>) -> Result<ast::TypedAst<'src>> {
+pub fn type_check(program: ast::UntypedAst) -> Result<ast::TypedAst> {
     let prototypes = program
         .functions
         .iter()
@@ -321,19 +321,19 @@ impl<'src> TypeChecker<'src> {
             ast::ExpressionKind::Int(x) => Ok(ast::Expression {
                 kind: ast::ExpressionKind::Int(x),
                 span: expr.span,
-                typ: ast::Type::Int.into(),
+                typ: ast::Type::Int,
             }),
 
             ast::ExpressionKind::Float(x) => Ok(ast::Expression {
                 kind: ast::ExpressionKind::Float(x),
                 span: expr.span,
-                typ: ast::Type::Float.into(),
+                typ: ast::Type::Float,
             }),
 
             ast::ExpressionKind::Bool(x) => Ok(ast::Expression {
                 kind: ast::ExpressionKind::Bool(x),
                 span: expr.span,
-                typ: ast::Type::Bool.into(),
+                typ: ast::Type::Bool,
             }),
 
             ast::ExpressionKind::Var(x) => {
@@ -435,7 +435,7 @@ impl<'src> TypeChecker<'src> {
                         expect_type(annotation, &typed_bind.typ, typed_bind.span)?;
                     }
 
-                    extended_vars.insert(var.clone(), typed_bind.typ);
+                    extended_vars.insert(var, typed_bind.typ);
                     typed_binds.push((var, annotation, typed_bind));
                 }
 
@@ -558,7 +558,7 @@ impl<'src> TypeChecker<'src> {
                 let (params, return_type) = match self.defined_records.get(&function) {
                     Some(fields) => (
                         fields.clone().into_iter().map(|(_, typ)| typ).collect(),
-                        ast::Type::Record(function.clone()),
+                        ast::Type::Record(function),
                     ),
                     None => self
                         .prototypes
@@ -591,7 +591,7 @@ impl<'src> TypeChecker<'src> {
                         args: typed_args,
                     },
                     span: expr.span,
-                    typ: return_type.clone(),
+                    typ: return_type,
                 })
             }
             ast::ExpressionKind::RecordSelector { expr: inner, field } => {
@@ -680,7 +680,7 @@ mod tests {
     #[test]
     fn unexpected_type() {
         let src = "def foo: int = true";
-        let tokens = lex(&src).unwrap();
+        let tokens = lex(src).unwrap();
         let ast = parse(&tokens, src.len()).unwrap();
         let err = type_check(ast).unwrap_err();
         assert!(matches!(err, TypeCheckError::UnexpectedType { .. }));
@@ -689,7 +689,7 @@ mod tests {
     #[test]
     fn not_bound() {
         let src = "def foo: int = x";
-        let tokens = lex(&src).unwrap();
+        let tokens = lex(src).unwrap();
         let ast = parse(&tokens, src.len()).unwrap();
         let err = type_check(ast).unwrap_err();
         assert!(matches!(err, TypeCheckError::NotBound { .. }));
@@ -698,7 +698,7 @@ mod tests {
     #[test]
     fn call_to_main() {
         let src = "def foo: int = main()";
-        let tokens = lex(&src).unwrap();
+        let tokens = lex(src).unwrap();
         let ast = parse(&tokens, src.len()).unwrap();
         let err = type_check(ast).unwrap_err();
         assert!(matches!(err, TypeCheckError::CallToMain { .. }));
@@ -713,7 +713,7 @@ mod tests {
             "def sqrt: float = 1.0",
         ] {
             let src = program;
-            let tokens = lex(&src).unwrap();
+            let tokens = lex(src).unwrap();
             let ast = parse(&tokens, src.len()).unwrap();
             let err = type_check(ast).unwrap_err();
             assert!(matches!(err, TypeCheckError::IllegalFunctionName { .. }));
@@ -723,7 +723,7 @@ mod tests {
     #[test]
     fn function_same_name_as_record() {
         let src = "rec record = x: int \n def record: int = 1";
-        let tokens = lex(&src).unwrap();
+        let tokens = lex(src).unwrap();
         let ast = parse(&tokens, src.len()).unwrap();
         let err = type_check(ast).unwrap_err();
         assert!(matches!(
@@ -735,7 +735,7 @@ mod tests {
     #[test]
     fn multiple_function_definitions() {
         let src = "def foo: int = 1 \n def foo: int = 2";
-        let tokens = lex(&src).unwrap();
+        let tokens = lex(src).unwrap();
         let ast = parse(&tokens, src.len()).unwrap();
         let err = type_check(ast).unwrap_err();
         assert!(matches!(
@@ -747,7 +747,7 @@ mod tests {
     #[test]
     fn unknown_parameter_type() {
         let src = "def foo(x: something): int = 0";
-        let tokens = lex(&src).unwrap();
+        let tokens = lex(src).unwrap();
         let ast = parse(&tokens, src.len()).unwrap();
         let err = type_check(ast).unwrap_err();
         assert!(matches!(err, TypeCheckError::UnknownParameterType { .. }));
@@ -756,7 +756,7 @@ mod tests {
     #[test]
     fn unknown_return_type() {
         let src = "def foo: something = something()";
-        let tokens = lex(&src).unwrap();
+        let tokens = lex(src).unwrap();
         let ast = parse(&tokens, src.len()).unwrap();
         let err = type_check(ast).unwrap_err();
         assert!(matches!(err, TypeCheckError::UnknownReturnType { .. }));
@@ -765,7 +765,7 @@ mod tests {
     #[test]
     fn wrong_number_of_arguments() {
         let src = "def foo(x: int, y: int): int = x + y \n def bar: int = foo(1)";
-        let tokens = lex(&src).unwrap();
+        let tokens = lex(src).unwrap();
         let ast = parse(&tokens, src.len()).unwrap();
         let err = type_check(ast).unwrap_err();
         assert!(matches!(err, TypeCheckError::WrongNumberOfArguments { .. }));
@@ -774,7 +774,7 @@ mod tests {
     #[test]
     fn multiple_record_definitions() {
         let src = "rec foo = x: int \n rec foo = x: float";
-        let tokens = lex(&src).unwrap();
+        let tokens = lex(src).unwrap();
         let ast = parse(&tokens, src.len()).unwrap();
         let err = type_check(ast).unwrap_err();
         assert!(matches!(
@@ -786,13 +786,13 @@ mod tests {
     #[test]
     fn unknown_record_field_type() {
         let src = "rec foo = x: something";
-        let tokens = lex(&src).unwrap();
+        let tokens = lex(src).unwrap();
         let ast = parse(&tokens, src.len()).unwrap();
         let err = type_check(ast).unwrap_err();
         assert!(matches!(err, TypeCheckError::UnknownRecordFieldType { .. }));
 
         let src = "rec foo = x: bar \n rec bar = x: int";
-        let tokens = lex(&src).unwrap();
+        let tokens = lex(src).unwrap();
         let ast = parse(&tokens, src.len()).unwrap();
         let err = type_check(ast).unwrap_err();
         assert!(matches!(err, TypeCheckError::UnknownRecordFieldType { .. }));
@@ -801,7 +801,7 @@ mod tests {
     #[test]
     fn multiple_field_names() {
         let src = "rec foo = x: int, x: int";
-        let tokens = lex(&src).unwrap();
+        let tokens = lex(src).unwrap();
         let ast = parse(&tokens, src.len()).unwrap();
         let err = type_check(ast).unwrap_err();
         assert!(matches!(err, TypeCheckError::MultipleFieldNames { .. }));
@@ -810,7 +810,7 @@ mod tests {
     #[test]
     fn illegal_selector() {
         let src = "rec foo = x: int \n def bar(foo: foo): int = foo.y";
-        let tokens = lex(&src).unwrap();
+        let tokens = lex(src).unwrap();
         let ast = parse(&tokens, src.len()).unwrap();
         let err = type_check(ast).unwrap_err();
         assert!(matches!(err, TypeCheckError::IllegalSelector { .. }));
@@ -819,7 +819,7 @@ mod tests {
     #[test]
     fn untracable_type() {
         let src = "rec foo = x: int \n def bar: foo = trace(foo(1))";
-        let tokens = lex(&src).unwrap();
+        let tokens = lex(src).unwrap();
         let ast = parse(&tokens, src.len()).unwrap();
         let err = type_check(ast).unwrap_err();
         assert!(matches!(err, TypeCheckError::UntracableType { .. }));
@@ -828,7 +828,7 @@ mod tests {
     #[test]
     fn impossible_cast() {
         let src = "rec foo = x: int \n def bar: int = cast_int(foo(1))";
-        let tokens = lex(&src).unwrap();
+        let tokens = lex(src).unwrap();
         let ast = parse(&tokens, src.len()).unwrap();
         let err = type_check(ast).unwrap_err();
         assert!(matches!(err, TypeCheckError::ImpossibleCast { .. }));
