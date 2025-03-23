@@ -168,7 +168,10 @@ mod tests {
     use super::*;
 
     fn tokenize(src: &str) -> Vec<(Token, Span)> {
-        lexer().parse(src.map_span(Into::into)).into_output().unwrap()
+        lexer()
+            .parse(src.map_span(Into::into))
+            .into_output()
+            .unwrap()
     }
 
     fn tokenize_without_spans(src: &str) -> Vec<Token> {
@@ -181,11 +184,7 @@ mod tests {
 
         assert_eq!(
             tokenize_without_spans(src),
-            vec![
-                Token::Int("0"),
-                Token::Float("0.0"),
-                Token::Float("123.4")
-            ]
+            vec![Token::Int("0"), Token::Float("0.0"), Token::Float("123.4")]
         );
     }
 
