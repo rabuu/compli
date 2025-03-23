@@ -9,7 +9,7 @@ use chumsky::prelude::*;
 use super::lexer::Token;
 use super::ParseErr;
 
-use crate::{ast, Span};
+use crate::{ast, Ident, Span};
 
 pub trait ParseInput<'src>: ValueInput<'src, Token = Token<'src>, Span = Span> {}
 impl<'src, T: ValueInput<'src, Token = Token<'src>, Span = Span>> ParseInput<'src> for T {}
@@ -17,7 +17,7 @@ impl<'src, T: ValueInput<'src, Token = Token<'src>, Span = Span>> ParseInput<'sr
 /// Parse tokens into an AST
 pub fn parser<'src, I: ParseInput<'src>>(
 ) -> impl Parser<'src, I, ast::UntypedAst<'src>, ParseErr<'src>> + Clone {
-    let ident = select! { Token::Ident(ident) => ident }.labelled("identifier");
+    let ident = select! { Token::Ident(ident) => Ident::from(ident) }.labelled("identifier");
 
     let typ = choice((
         just(Token::KwInt).to(ast::Type::Int),
