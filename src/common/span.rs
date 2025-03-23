@@ -54,7 +54,7 @@ impl From<Span> for Range<usize> {
     }
 }
 
-impl chumsky::Span for Span {
+impl chumsky::span::Span for Span {
     type Context = ();
     type Offset = usize;
 
@@ -70,6 +70,15 @@ impl chumsky::Span for Span {
 
     fn end(&self) -> Self::Offset {
         self.end
+    }
+}
+
+impl From<chumsky::span::SimpleSpan> for Span {
+    fn from(value: chumsky::span::SimpleSpan) -> Self {
+        Self {
+            start: value.start,
+            end: value.end,
+        }
     }
 }
 

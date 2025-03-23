@@ -3,16 +3,21 @@
 //! This submodule parses a stream of tokens into an AST. Its main interface is the [parser]
 //! function.
 
+use chumsky::input::ValueInput;
 use chumsky::prelude::*;
 
 use super::lexer::Token;
-use super::ParseErr;
 
-use crate::{ast, Span};
+use crate::{ast, Ident, Span};
+
+type ParseErr<'src> = chumsky::extra::Err<Rich<'src, Token<'src>, Span>>;
 
 /// Parse tokens into an AST
-pub fn parser() -> impl Parser<Token, ast::UntypedAst, Error = ParseErr<Token>> + Clone {
-    let ident = select! { Token::Ident(ident) => ident }.labelled("identifier");
+pub fn parser<'src, I>() -> impl Parser<'src, I, ast::UntypedAst<'src>, ParseErr<'src>>
+where
+    I: ValueInput<'src, Token = Token<'src>, Span = Span>,
+{
+    let ident = select! { Token::Ident(ident) => Ident::from(ident) }.labelled("identifier");
 
     let typ = choice((
         just(Token::KwInt).to(ast::Type::Int),
@@ -21,221 +26,216 @@ pub fn parser() -> impl Parser<Token, ast::UntypedAst, Error = ParseErr<Token>> 
         ident.map(ast::Type::Record),
     ));
 
-    let expr = recursive(|expr| {
-        let val = select! {
-            Token::Int(x) => ast::ExpressionKind::Int(x.parse().unwrap()),
-            Token::Bool(x) => ast::ExpressionKind::Bool(x),
-            Token::Float(x) => ast::ExpressionKind::Float(x.parse().unwrap()),
-        }
-        .labelled("value");
+    let expr =
+        recursive(|expr| {
+            let val = select! {
+                Token::Int(x) => ast::ExpressionKind::Int(x.parse().unwrap()),
+                Token::Bool(x) => ast::ExpressionKind::Bool(x),
+                Token::Float(x) => ast::ExpressionKind::Float(x.parse().unwrap()),
+            }
+            .labelled("value");
 
-        let var = ident.map(ast::ExpressionKind::Var);
+            let var = ident.map(ast::ExpressionKind::Var);
 
-        let items = expr
-            .clone()
-            .separated_by(just(Token::Comma))
-            .allow_trailing();
-
-        let call = ident
-            .then(items.delimited_by(just(Token::ParenOpen), just(Token::ParenClose)))
-            .map(|(function, args)| ast::ExpressionKind::Call { function, args });
-
-        let atom = val
-            .or(call)
-            .or(var)
-            .map_with_span(|kind, span: Span| ast::Expression::new(kind, span, ast::NoTypeContext))
-            .or(expr
+            let items = expr
                 .clone()
-                .delimited_by(just(Token::ParenOpen), just(Token::ParenClose)));
+                .separated_by(just(Token::Comma))
+                .allow_trailing()
+                .collect::<Vec<_>>();
 
-        let selector = atom
-            .clone()
-            .then(
-                just(Token::Dot)
-                    .ignore_then(ident.map_with_span(|e, span: Span| (e, span)))
-                    .repeated(),
-            )
-            .foldl(|expr, (field, field_span)| {
-                let span = Span::new(expr.span.start, field_span.end);
-                let e = ast::ExpressionKind::RecordSelector {
-                    expr: Box::new(expr),
-                    field,
-                };
-                ast::Expression::new(e, span, ast::NoTypeContext)
-            });
+            let call = ident
+                .then(items.delimited_by(just(Token::ParenOpen), just(Token::ParenClose)))
+                .map(|(function, args)| ast::ExpressionKind::Call { function, args });
 
-        let unary = just(Token::Minus)
-            .to(ast::UnaryOperation::Neg)
-            .or(just(Token::Bang).to(ast::UnaryOperation::Not))
-            .map_with_span(|e, span: Span| (e, span))
-            .or_not()
-            .then(selector)
-            .map(|(op, inner)| {
-                if let Some((op, op_span)) = op {
-                    let span = Span::new(op_span.start, inner.span.end);
-                    let e = ast::ExpressionKind::Unary {
+            let atom = val
+                .or(call)
+                .or(var)
+                .map_with(|kind, e| ast::Expression::new(kind, e.span(), ast::NoTypeContext))
+                .or(expr
+                    .clone()
+                    .delimited_by(just(Token::ParenOpen), just(Token::ParenClose)))
+                .boxed();
+
+            let complex_expr = atom;
+
+            // selector operator
+            let op = just(Token::Dot);
+            let complex_expr = complex_expr.clone().foldl_with(
+                op.ignore_then(ident).repeated(),
+                |expr, field, e| ast::Expression {
+                    kind: ast::ExpressionKind::RecordSelector {
+                        expr: Box::new(expr),
+                        field,
+                    },
+                    span: e.span(),
+                    typ: ast::NoTypeContext,
+                },
+            );
+
+            // unary operations
+            let op = choice((
+                just(Token::Minus).to(ast::UnaryOperation::Neg),
+                just(Token::Bang).to(ast::UnaryOperation::Not),
+            ));
+            let complex_expr = op
+                .or_not()
+                .then(complex_expr)
+                .map_with(|(op, inner), e| match op {
+                    None => inner,
+                    Some(op) => ast::Expression {
+                        kind: ast::ExpressionKind::Unary {
+                            op,
+                            inner: Box::new(inner),
+                        },
+                        span: e.span(),
+                        typ: ast::NoTypeContext,
+                    },
+                });
+
+            // product operations
+            let op = choice((
+                just(Token::Asterisk).to(ast::BinaryOperation::Mul),
+                just(Token::Slash).to(ast::BinaryOperation::Div),
+            ));
+            let complex_expr = complex_expr.clone().foldl_with(
+                op.then(complex_expr).repeated(),
+                |a, (op, b), e| ast::Expression {
+                    kind: ast::ExpressionKind::Binary {
                         op,
-                        inner: Box::new(inner),
+                        lhs: Box::new(a),
+                        rhs: Box::new(b),
+                    },
+                    span: e.span(),
+                    typ: ast::NoTypeContext,
+                },
+            );
+
+            // sum operations
+            let op = choice((
+                just(Token::Plus).to(ast::BinaryOperation::Add),
+                just(Token::Minus).to(ast::BinaryOperation::Sub),
+            ));
+            let complex_expr = complex_expr.clone().foldl_with(
+                op.then(complex_expr).repeated(),
+                |a, (op, b), e| ast::Expression {
+                    kind: ast::ExpressionKind::Binary {
+                        op,
+                        lhs: Box::new(a),
+                        rhs: Box::new(b),
+                    },
+                    span: e.span(),
+                    typ: ast::NoTypeContext,
+                },
+            );
+
+            // comparison operations
+            let op = choice((
+                just(Token::Equals).to(ast::BinaryOperation::Equals),
+                just(Token::Less).to(ast::BinaryOperation::Less),
+                just(Token::LessEq).to(ast::BinaryOperation::LessEq),
+                just(Token::Greater).to(ast::BinaryOperation::Greater),
+                just(Token::GreaterEq).to(ast::BinaryOperation::GreaterEq),
+            ));
+            let complex_expr = complex_expr.clone().foldl_with(
+                op.then(complex_expr).repeated(),
+                |a, (op, b), e| ast::Expression {
+                    kind: ast::ExpressionKind::Binary {
+                        op,
+                        lhs: Box::new(a),
+                        rhs: Box::new(b),
+                    },
+                    span: e.span(),
+                    typ: ast::NoTypeContext,
+                },
+            );
+
+            // and operation
+            let op = just(Token::And).to(ast::BinaryOperation::And);
+            let complex_expr = complex_expr.clone().foldl_with(
+                op.then(complex_expr).repeated(),
+                |a, (op, b), e| ast::Expression {
+                    kind: ast::ExpressionKind::Binary {
+                        op,
+                        lhs: Box::new(a),
+                        rhs: Box::new(b),
+                    },
+                    span: e.span(),
+                    typ: ast::NoTypeContext,
+                },
+            );
+
+            // or operation
+            let op = just(Token::Or).to(ast::BinaryOperation::Or);
+            let complex_expr = complex_expr.clone().foldl_with(
+                op.then(complex_expr).repeated(),
+                |a, (op, b), e| ast::Expression {
+                    kind: ast::ExpressionKind::Binary {
+                        op,
+                        lhs: Box::new(a),
+                        rhs: Box::new(b),
+                    },
+                    span: e.span(),
+                    typ: ast::NoTypeContext,
+                },
+            );
+
+            let term = complex_expr.labelled("term");
+
+            let if_then_else = just(Token::KwIf)
+                .ignore_then(expr.clone())
+                .then_ignore(just(Token::KwThen))
+                .then(expr.clone())
+                .then_ignore(just(Token::KwElse))
+                .then(expr.clone())
+                .map_with(|((condition, yes), no), e| {
+                    let kind = ast::ExpressionKind::IfThenElse {
+                        condition: Box::new(condition),
+                        yes: Box::new(yes),
+                        no: Box::new(no),
                     };
-                    ast::Expression::new(e, span, ast::NoTypeContext)
-                } else {
-                    inner
-                }
-            });
+                    ast::Expression::new(kind, e.span(), ast::NoTypeContext)
+                });
 
-        let prod_or_quot = unary
-            .clone()
-            .then(
-                just(Token::Asterisk)
-                    .to(ast::BinaryOperation::Mul)
-                    .or(just(Token::Slash).to(ast::BinaryOperation::Div))
-                    .then(unary)
-                    .repeated(),
-            )
-            .foldl(|lhs, (kind, rhs)| {
-                let span = Span::new(lhs.span.start, rhs.span.end);
-                let e = ast::ExpressionKind::Binary {
-                    op: kind,
-                    lhs: Box::new(lhs),
-                    rhs: Box::new(rhs),
-                };
-                ast::Expression::new(e, span, ast::NoTypeContext)
-            });
+            let let_in = just(Token::KwLet)
+                .ignore_then(
+                    ident
+                        .then(just(Token::Colon).ignore_then(typ.clone()).or_not())
+                        .then_ignore(just(Token::Assign))
+                        .then(expr.clone())
+                        .separated_by(just(Token::Comma))
+                        .allow_trailing()
+                        .at_least(1)
+                        .collect::<Vec<_>>(),
+                )
+                .then_ignore(just(Token::KwIn))
+                .then(expr.clone())
+                .map_with(|(binds, body), e| {
+                    let binds = binds
+                        .into_iter()
+                        .map(|((var, annotation), bind)| (var, annotation, bind))
+                        .collect();
+                    let kind = ast::ExpressionKind::LetIn {
+                        binds,
+                        body: Box::new(body),
+                    };
+                    ast::Expression::new(kind, e.span(), ast::NoTypeContext)
+                });
 
-        let sum_or_diff = prod_or_quot
-            .clone()
-            .then(
-                just(Token::Plus)
-                    .to(ast::BinaryOperation::Add)
-                    .or(just(Token::Minus).to(ast::BinaryOperation::Sub))
-                    .then(prod_or_quot)
-                    .repeated(),
-            )
-            .foldl(|lhs, (kind, rhs)| {
-                let span = Span::new(lhs.span.start, rhs.span.end);
-                let e = ast::ExpressionKind::Binary {
-                    op: kind,
-                    lhs: Box::new(lhs),
-                    rhs: Box::new(rhs),
-                };
-                ast::Expression::new(e, span, ast::NoTypeContext)
-            });
-
-        let comparison = sum_or_diff
-            .clone()
-            .then(
-                choice((
-                    just(Token::Equals).to(ast::BinaryOperation::Equals),
-                    just(Token::Less).to(ast::BinaryOperation::Less),
-                    just(Token::LessEq).to(ast::BinaryOperation::LessEq),
-                    just(Token::Greater).to(ast::BinaryOperation::Greater),
-                    just(Token::GreaterEq).to(ast::BinaryOperation::GreaterEq),
-                ))
-                .then(sum_or_diff)
-                .repeated(),
-            )
-            .foldl(|lhs, (kind, rhs)| {
-                let span = Span::new(lhs.span.start, rhs.span.end);
-                let e = ast::ExpressionKind::Binary {
-                    op: kind,
-                    lhs: Box::new(lhs),
-                    rhs: Box::new(rhs),
-                };
-                ast::Expression::new(e, span, ast::NoTypeContext)
-            });
-
-        let and = comparison
-            .clone()
-            .then(
-                just(Token::And)
-                    .to(ast::BinaryOperation::And)
-                    .then(comparison)
-                    .repeated(),
-            )
-            .foldl(|lhs, (kind, rhs)| {
-                let span = Span::new(lhs.span.start, rhs.span.end);
-                let e = ast::ExpressionKind::Binary {
-                    op: kind,
-                    lhs: Box::new(lhs),
-                    rhs: Box::new(rhs),
-                };
-                ast::Expression::new(e, span, ast::NoTypeContext)
-            });
-
-        let or = and
-            .clone()
-            .then(
-                just(Token::Or)
-                    .to(ast::BinaryOperation::Or)
-                    .then(and)
-                    .repeated(),
-            )
-            .foldl(|lhs, (kind, rhs)| {
-                let span = Span::new(lhs.span.start, rhs.span.end);
-                let e = ast::ExpressionKind::Binary {
-                    op: kind,
-                    lhs: Box::new(lhs),
-                    rhs: Box::new(rhs),
-                };
-                ast::Expression::new(e, span, ast::NoTypeContext)
-            });
-
-        let term = or.labelled("term");
-
-        let if_then_else = just(Token::KwIf)
-            .map_with_span(|_, span: Span| span.start)
-            .then(expr.clone())
-            .then_ignore(just(Token::KwThen))
-            .then(expr.clone())
-            .then_ignore(just(Token::KwElse))
-            .then(expr.clone())
-            .map(|(((start, condition), yes), no)| {
-                let span = Span::new(start, no.span.end);
-                let e = ast::ExpressionKind::IfThenElse {
-                    condition: Box::new(condition),
-                    yes: Box::new(yes),
-                    no: Box::new(no),
-                };
-                ast::Expression::new(e, span, ast::NoTypeContext)
-            });
-
-        let let_in = just(Token::KwLet)
-            .map_with_span(|_, span: Span| span.start)
-            .then(
-                ident
-                    .then(just(Token::Colon).ignore_then(typ.clone()).or_not())
-                    .then_ignore(just(Token::Assign))
-                    .then(expr.clone())
-                    .separated_by(just(Token::Comma))
-                    .allow_trailing()
-                    .at_least(1),
-            )
-            .then_ignore(just(Token::KwIn))
-            .then(expr.clone())
-            .map(|((start, binds), body)| {
-                let binds = binds
-                    .into_iter()
-                    .map(|((var, annotation), bind)| (var, annotation, bind))
-                    .collect();
-                let span = Span::new(start, body.span.end);
-                let e = ast::ExpressionKind::LetIn {
-                    binds,
-                    body: Box::new(body),
-                };
-                ast::Expression::new(e, span, ast::NoTypeContext)
-            });
-
-        choice((if_then_else, let_in, term))
-    });
+            choice((if_then_else, let_in, term))
+                .boxed()
+                .labelled("expression")
+                .as_context()
+        });
 
     let def = just(Token::KwDef)
-        .ignore_then(ident.map_with_span(|name, span: Span| (name, span)))
+        .ignore_then(ident.map_with(|name, e| (name, e.span())))
         .then(
             ident
                 .then_ignore(just(Token::Colon))
                 .then(typ.clone())
                 .separated_by(just(Token::Comma))
                 .allow_trailing()
+                .collect()
                 .delimited_by(just(Token::ParenOpen), just(Token::ParenClose))
                 .or_not(),
         )
@@ -254,7 +254,7 @@ pub fn parser() -> impl Parser<Token, ast::UntypedAst, Error = ParseErr<Token>> 
         );
 
     let record = just(Token::KwRec)
-        .ignore_then(ident.map_with_span(|name, span: Span| (name, span)))
+        .ignore_then(ident.map_with(|name, e| (name, e.span())))
         .then(
             just(Token::Assign)
                 .ignore_then(
@@ -263,7 +263,8 @@ pub fn parser() -> impl Parser<Token, ast::UntypedAst, Error = ParseErr<Token>> 
                         .then(typ)
                         .separated_by(just(Token::Comma))
                         .allow_trailing()
-                        .at_least(1),
+                        .at_least(1)
+                        .collect(),
                 )
                 .or_not(),
         )
@@ -273,9 +274,9 @@ pub fn parser() -> impl Parser<Token, ast::UntypedAst, Error = ParseErr<Token>> 
             name_span,
         });
 
-    enum FunctionOrRecord {
-        Function(ast::Function<ast::NoTypeContext>),
-        Record(ast::Record),
+    enum FunctionOrRecord<'src> {
+        Function(ast::Function<'src, ast::NoTypeContext>),
+        Record(ast::Record<'src>),
     }
 
     let func_or_record = choice((
@@ -299,4 +300,5 @@ pub fn parser() -> impl Parser<Token, ast::UntypedAst, Error = ParseErr<Token>> 
             ast::Program { records, functions }
         })
         .then_ignore(end())
+        .boxed()
 }

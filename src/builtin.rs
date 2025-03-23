@@ -4,7 +4,7 @@
 //! for those builtin functions that exist in compli's runtime.
 
 use crate::ir::{FunctionPrototype, Type};
-use crate::Variable;
+use crate::{Ident, Variable};
 
 #[derive(Debug)]
 pub enum BuiltinFunction {
@@ -17,8 +17,8 @@ pub enum BuiltinFunction {
 }
 
 impl BuiltinFunction {
-    pub fn from_name(name: &str) -> Option<Self> {
-        match name {
+    pub fn from_name(name: Ident) -> Option<Self> {
+        match name.as_str() {
             "trace" => Some(Self::Trace),
             "cast_int" => Some(Self::CastInt),
             "cast_float" => Some(Self::CastFloat),
@@ -41,50 +41,50 @@ impl BuiltinFunction {
     }
 }
 
-pub fn all_builtin_prototypes() -> [FunctionPrototype; 9] {
+pub fn all_builtin_prototypes() -> [FunctionPrototype<'static>; 9] {
     [
         FunctionPrototype {
-            name: String::from("__compli_trace_int"),
+            name: Ident::from("__compli_trace_int"),
             parameters: vec![(Variable::DONT_CARE, Type::Int)],
             return_type: Type::Int,
         },
         FunctionPrototype {
-            name: String::from("__compli_trace_float"),
+            name: Ident::from("__compli_trace_float"),
             parameters: vec![(Variable::DONT_CARE, Type::Float)],
             return_type: Type::Float,
         },
         FunctionPrototype {
-            name: String::from("__compli_trace_bool"),
+            name: Ident::from("__compli_trace_bool"),
             parameters: vec![(Variable::DONT_CARE, Type::Bool)],
             return_type: Type::Bool,
         },
         FunctionPrototype {
-            name: String::from("__compli_bool_to_int"),
+            name: Ident::from("__compli_bool_to_int"),
             parameters: vec![(Variable::DONT_CARE, Type::Bool)],
             return_type: Type::Int,
         },
         FunctionPrototype {
-            name: String::from("__compli_float_to_int"),
+            name: Ident::from("__compli_float_to_int"),
             parameters: vec![(Variable::DONT_CARE, Type::Float)],
             return_type: Type::Int,
         },
         FunctionPrototype {
-            name: String::from("__compli_int_to_float"),
+            name: Ident::from("__compli_int_to_float"),
             parameters: vec![(Variable::DONT_CARE, Type::Int)],
             return_type: Type::Float,
         },
         FunctionPrototype {
-            name: String::from("__compli_sqrt"),
+            name: Ident::from("__compli_sqrt"),
             parameters: vec![(Variable::DONT_CARE, Type::Float)],
             return_type: Type::Float,
         },
         FunctionPrototype {
-            name: String::from("__compli_input_int"),
+            name: Ident::from("__compli_input_int"),
             parameters: vec![],
             return_type: Type::Int,
         },
         FunctionPrototype {
-            name: String::from("__compli_input_float"),
+            name: Ident::from("__compli_input_float"),
             parameters: vec![],
             return_type: Type::Float,
         },

@@ -1,23 +1,22 @@
 //! Lexer
 //!
 //! This submodule prepares source code for parsing by splitting the text into easy-to-work-with
-//! tokens. The [lex] parser is its main interface.
+//! tokens. The [lexer] parser is its main interface.
 
 use std::fmt;
 
+use chumsky::input::MappedSpan;
 use chumsky::prelude::*;
 
 use crate::Span;
 
-use super::ParseErr;
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Token {
-    Int(String),
+pub enum Token<'src> {
+    Int(&'src str),
     Bool(bool),
-    Float(String),
+    Float(&'src str),
 
-    Ident(String),
+    Ident(&'src str),
 
     KwBool,
     KwInt,
@@ -53,7 +52,7 @@ pub enum Token {
     Dot,
 }
 
-impl fmt::Display for Token {
+impl fmt::Display for Token<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Token::KwBool => write!(f, "bool"),
@@ -92,13 +91,20 @@ impl fmt::Display for Token {
     }
 }
 
+type LexInput<'src, F> = MappedSpan<Span, &'src str, F>;
+type LexOutput<'src> = Vec<(Token<'src>, Span)>;
+type LexErr<'src> = chumsky::extra::Err<Rich<'src, char, Span>>;
+
 /// Tokenize source code
-pub fn lex() -> impl Parser<char, Vec<(Token, Span)>, Error = ParseErr<char>> {
+pub fn lexer<'src, F>() -> impl Parser<'src, LexInput<'src, F>, LexOutput<'src>, LexErr<'src>>
+where
+    F: Fn(SimpleSpan) -> Span + 'src,
+{
     let integer = text::int(10).map(Token::Int);
 
     let float = text::int(10)
-        .chain::<char, _, _>(just('.').chain(text::digits(10)))
-        .collect::<String>()
+        .then(just('.').then(text::digits(10)))
+        .to_slice()
         .map(Token::Float);
 
     let symbol = choice((
@@ -125,7 +131,7 @@ pub fn lex() -> impl Parser<char, Vec<(Token, Span)>, Error = ParseErr<char>> {
         }),
     ));
 
-    let kw_or_ident = text::ident().map(|ident: String| match ident.as_str() {
+    let kw_or_ident = text::ident().map(|ident| match ident {
         "bool" => Token::KwBool,
         "int" => Token::KwInt,
         "float" => Token::KwFloat,
@@ -143,13 +149,17 @@ pub fn lex() -> impl Parser<char, Vec<(Token, Span)>, Error = ParseErr<char>> {
 
     let token = float.or(integer).or(symbol).or(kw_or_ident);
 
-    let comment = just("//").then(take_until(just('\n'))).padded();
+    let comment = just("//")
+        .then(any().and_is(just('\n').not()).repeated())
+        .padded();
 
     token
-        .map_with_span(|tok, span| (tok, span))
+        .map_with(|tok, e| (tok, e.span()))
         .padded_by(comment.repeated())
         .padded()
+        .recover_with(skip_then_retry_until(any().ignored(), end()))
         .repeated()
+        .collect()
         .then_ignore(end())
 }
 
@@ -158,9 +168,10 @@ mod tests {
     use super::*;
 
     fn tokenize(src: &str) -> Vec<(Token, Span)> {
-        let eoi = Span::marker(src.chars().count());
-        let chars = src.chars().enumerate().map(|(i, c)| (c, Span::single(i)));
-        lex().parse(chumsky::Stream::from_iter(eoi, chars)).unwrap()
+        lexer()
+            .parse(src.map_span(Into::into))
+            .into_output()
+            .unwrap()
     }
 
     fn tokenize_without_spans(src: &str) -> Vec<Token> {
@@ -173,11 +184,7 @@ mod tests {
 
         assert_eq!(
             tokenize_without_spans(src),
-            vec![
-                Token::Int(String::from("0")),
-                Token::Float(String::from("0.0")),
-                Token::Float(String::from("123.4"))
-            ]
+            vec![Token::Int("0"), Token::Float("0.0"), Token::Float("123.4")]
         );
     }
 
@@ -211,9 +218,9 @@ def foo(a: int): float = (
             tokenize_without_spans(src),
             vec![
                 Token::KwDef,
-                Token::Ident(String::from("foo")),
+                Token::Ident("foo"),
                 Token::ParenOpen,
-                Token::Ident(String::from("a")),
+                Token::Ident("a"),
                 Token::Colon,
                 Token::KwInt,
                 Token::ParenClose,
@@ -222,22 +229,22 @@ def foo(a: int): float = (
                 Token::Assign,
                 Token::ParenOpen,
                 Token::KwLet,
-                Token::Ident(String::from("b")),
+                Token::Ident("b"),
                 Token::Assign,
-                Token::Int(String::from("1")),
+                Token::Int("1"),
                 Token::Comma,
-                Token::Ident(String::from("c")),
+                Token::Ident("c"),
                 Token::Assign,
                 Token::Bool(true),
                 Token::KwIn,
                 Token::KwIf,
-                Token::Int(String::from("3")),
+                Token::Int("3"),
                 Token::Greater,
-                Token::Int(String::from("4")),
+                Token::Int("4"),
                 Token::KwThen,
-                Token::Float(String::from("123.4")),
+                Token::Float("123.4"),
                 Token::KwElse,
-                Token::Float(String::from("0.0")),
+                Token::Float("0.0"),
                 Token::ParenClose,
             ]
         );

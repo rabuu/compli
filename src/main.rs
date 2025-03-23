@@ -189,11 +189,12 @@ fn main() -> Result<()> {
             let target_machine = initialize_llvm_target_machine()?;
 
             let source = read_input_file(&input_file)?;
+            let tokens = lex(&source)?;
 
             let context = Context::create();
             let module = codegen(
                 &context,
-                lower(type_check(parse(&source)?, &source)?, &source)?,
+                lower(type_check(parse(&tokens, &source)?, &source)?, &source)?,
             )?;
 
             let tempdir = tempfile::tempdir().map_err(AppError::GenericIoError)?;
@@ -227,18 +228,20 @@ fn main() -> Result<()> {
             let target_machine = initialize_llvm_target_machine()?;
 
             let source = read_input_file(&input_file)?;
+            let tokens = lex(&source)?;
 
             let context = Context::create();
             let module = codegen(
                 &context,
-                lower(type_check(parse(&source)?, &source)?, &source)?,
+                lower(type_check(parse(&tokens, &source)?, &source)?, &source)?,
             )?;
 
             write_module_to_file(&output_file, &target_machine, &module, filetype)?;
         }
         Mode::InspectAst { input_file, typed } => {
             let source = read_input_file(&input_file)?;
-            let ast = parse(&source)?;
+            let tokens = lex(&source)?;
+            let ast = parse(&tokens, &source)?;
 
             if typed {
                 let typed_ast = type_check(ast, &source)?;
@@ -249,7 +252,8 @@ fn main() -> Result<()> {
         }
         Mode::InspectIr { input_file } => {
             let source = read_input_file(&input_file)?;
-            let ir = lower(type_check(parse(&source)?, &source)?, &source)?;
+            let tokens = lex(&source)?;
+            let ir = lower(type_check(parse(&tokens, &source)?, &source)?, &source)?;
             ir.pretty_print().map_err(AppError::GenericIoError)?;
         }
     }
@@ -324,8 +328,20 @@ fn with_source(err: AppError, source: &str) -> Report {
     report.with_source_code(source.to_string())
 }
 
-fn parse(source: &str) -> Result<compli::UntypedAst> {
-    let ast = compli::parse(source)
+fn lex(source: &str) -> Result<Vec<(compli::Token, compli::Span)>> {
+    let tokens = compli::lex(source)
+        .map_err(AppError::ParsingError)
+        .map_err(|err| with_source(err, source))?;
+    info!("Lexing of source code was successful");
+
+    Ok(tokens)
+}
+
+fn parse<'src, 'tok: 'src>(
+    tokens: &'tok [(compli::Token<'src>, compli::Span)],
+    source: &'src str,
+) -> Result<compli::UntypedAst<'src>> {
+    let ast = compli::parse(tokens, source.len())
         .map_err(AppError::ParsingError)
         .map_err(|err| with_source(err, source))?;
     info!("Parsing of source code was successful");
@@ -333,7 +349,10 @@ fn parse(source: &str) -> Result<compli::UntypedAst> {
     Ok(ast)
 }
 
-fn type_check(ast: compli::UntypedAst, source: &str) -> Result<compli::TypedAst> {
+fn type_check<'src>(
+    ast: compli::UntypedAst<'src>,
+    source: &'src str,
+) -> Result<compli::TypedAst<'src>> {
     let typed_ast = compli::type_check(ast)
         .map_err(AppError::TypeCheckError)
         .map_err(|err| with_source(err, source))?;
@@ -342,7 +361,10 @@ fn type_check(ast: compli::UntypedAst, source: &str) -> Result<compli::TypedAst>
     Ok(typed_ast)
 }
 
-fn lower(typed_ast: compli::TypedAst, source: &str) -> Result<compli::IntermediateRepresentation> {
+fn lower<'src>(
+    typed_ast: compli::TypedAst<'src>,
+    source: &'src str,
+) -> Result<compli::IntermediateRepresentation<'src>> {
     let ir = compli::lower(typed_ast)
         .map_err(AppError::LoweringError)
         .map_err(|err| with_source(err, source))?;
@@ -351,7 +373,10 @@ fn lower(typed_ast: compli::TypedAst, source: &str) -> Result<compli::Intermedia
     Ok(ir)
 }
 
-fn codegen(context: &Context, ir: compli::IntermediateRepresentation) -> Result<Module<'_>> {
+fn codegen<'ctx>(
+    context: &'ctx Context,
+    ir: compli::IntermediateRepresentation,
+) -> Result<Module<'ctx>> {
     let module = compli::compile(context, ir).map_err(AppError::CodegenError)?;
     info!("Code generation was successful");
 
