@@ -66,9 +66,7 @@ pub fn parse<'src, 'tok: 'src>(
     eoi: usize,
 ) -> Result<ast::UntypedAst<'src>, Vec<ParsingError>> {
     let (ast, errs) = parser::parser()
-        .parse(
-            tokens.map(Span::marker(eoi), |(t, s)| (t, s)),
-        )
+        .parse(tokens.map(Span::marker(eoi), |(t, s)| (t, s)))
         .into_output_errors();
 
     if !errs.is_empty() {

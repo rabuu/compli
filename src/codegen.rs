@@ -30,10 +30,7 @@ pub enum CodegenError {
 type Result<T> = std::result::Result<T, CodegenError>;
 
 /// Compile an [inkwell]/LLVM module from a compli program
-pub fn compile<'ctx>(
-    context: &'ctx Context,
-    program: ir::Program,
-) -> Result<Module<'ctx>> {
+pub fn compile<'ctx>(context: &'ctx Context, program: ir::Program) -> Result<Module<'ctx>> {
     let mut codegen = Codegen::new(context, &program.skeleton(), &program.entry)?;
 
     for function in &program.functions {
@@ -89,10 +86,7 @@ impl<'ctx> Codegen<'ctx> {
         Ok(codegen)
     }
 
-    fn compile_prototype(
-        &self,
-        prototype: &ir::FunctionPrototype,
-    ) -> Result<FunctionValue<'ctx>> {
+    fn compile_prototype(&self, prototype: &ir::FunctionPrototype) -> Result<FunctionValue<'ctx>> {
         let ret_type = self.compile_type(&prototype.return_type);
         let param_types: Vec<BasicMetadataTypeEnum> = prototype
             .parameters
