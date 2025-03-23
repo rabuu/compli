@@ -118,6 +118,7 @@ fn build_error(err: Rich<String, Span>) -> ParsingError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Ident;
 
     #[test]
     fn program() {
@@ -125,28 +126,29 @@ mod tests {
 def foo(): int = 1 def BAr_2(_: float): bool=     true &&  false
 rec a = a: int,rec b=b:a,a:a
         "#;
+        let tokens = lex(src).unwrap();
 
         assert_eq!(
-            parse(src).unwrap(),
+            parse(&tokens, src.len()).unwrap(),
             ast::Program {
                 records: vec![
                     ast::Record {
-                        name: String::from("a"),
-                        fields: vec![(String::from("a"), ast::Type::Int)],
+                        name: Ident::from("a"),
+                        fields: vec![(Ident::from("a"), ast::Type::Int)],
                         name_span: Span::new(70, 71),
                     },
                     ast::Record {
-                        name: String::from("b"),
+                        name: Ident::from("b"),
                         fields: vec![
-                            (String::from("b"), ast::Type::Record(String::from("a"))),
-                            (String::from("a"), ast::Type::Record(String::from("a"))),
+                            (Ident::from("b"), ast::Type::Record(Ident::from("a"))),
+                            (Ident::from("a"), ast::Type::Record(Ident::from("a"))),
                         ],
                         name_span: Span::new(85, 86),
                     }
                 ],
                 functions: vec![
                     ast::Function {
-                        name: String::from("foo"),
+                        name: Ident::from("foo"),
                         body: ast::Expression {
                             kind: ast::ExpressionKind::Int(1),
                             span: Span::new(18, 19),
@@ -157,7 +159,7 @@ rec a = a: int,rec b=b:a,a:a
                         name_span: Span::new(5, 8),
                     },
                     ast::Function {
-                        name: String::from("BAr_2"),
+                        name: Ident::from("BAr_2"),
                         body: ast::Expression {
                             kind: ast::ExpressionKind::Binary {
                                 op: ast::BinaryOperation::And,
@@ -175,7 +177,7 @@ rec a = a: int,rec b=b:a,a:a
                             span: Span::new(51, 65),
                             typ: ast::NoTypeContext,
                         },
-                        params: vec![(String::from("_"), ast::Type::Float)],
+                        params: vec![(Ident::from("_"), ast::Type::Float)],
                         return_type: ast::Type::Bool,
                         name_span: Span::new(24, 29),
                     }
@@ -187,12 +189,13 @@ rec a = a: int,rec b=b:a,a:a
     #[test]
     fn simple_record() {
         let src = "rec foo=foo:foo";
+        let tokens = lex(src).unwrap();
         assert_eq!(
-            parse(src).unwrap(),
+            parse(&tokens, src.len()).unwrap(),
             ast::Program {
                 records: vec![ast::Record {
-                    name: String::from("foo"),
-                    fields: vec![(String::from("foo"), ast::Type::Record(String::from("foo")))],
+                    name: Ident::from("foo"),
+                    fields: vec![(Ident::from("foo"), ast::Type::Record(Ident::from("foo")))],
                     name_span: Span::new(4, 7),
                 }],
                 functions: vec![]
@@ -204,33 +207,38 @@ rec a = a: int,rec b=b:a,a:a
     #[should_panic]
     fn empty_record() {
         let src = "rec foo =";
-        parse(src).unwrap();
+        let tokens = lex(src).unwrap();
+        parse(&tokens, src.len()).unwrap();
     }
 
     #[test]
     #[should_panic]
     fn unclosed() {
         let src = "def foo(): int = (1 + 2";
-        parse(src).unwrap();
+        let tokens = lex(src).unwrap();
+        parse(&tokens, src.len()).unwrap();
     }
 
     #[test]
     #[should_panic]
     fn unopened() {
         let src = "def foo(): int = 1 + 2)";
-        parse(src).unwrap();
+        let tokens = lex(src).unwrap();
+        parse(&tokens, src.len()).unwrap();
     }
 
     #[test]
     fn unit_record() {
         let src = "rec foo";
-        parse(src).unwrap();
+        let tokens = lex(src).unwrap();
+        parse(&tokens, src.len()).unwrap();
     }
 
     #[test]
     #[should_panic]
     fn unit_record_wrong() {
         let src = "rec foo =";
-        parse(src).unwrap();
+        let tokens = lex(src).unwrap();
+        parse(&tokens, src.len()).unwrap();
     }
 }
