@@ -6,29 +6,29 @@
 //! Since we are using [inkwell] and its recursive builder, our intermediate representation can
 //! still be quite high-level and tree-like.
 
-use crate::Variable;
+use crate::{Ident, Variable};
 
 #[derive(Debug)]
-pub struct Program {
-    pub entry: Expression,
-    pub functions: Vec<FunctionDefinition>,
+pub struct Program<'src> {
+    pub entry: Expression<'src>,
+    pub functions: Vec<FunctionDefinition<'src>>,
 }
 
-impl Program {
+impl Program<'_> {
     pub fn skeleton(&self) -> Vec<FunctionPrototype> {
         self.functions.iter().map(|f| f.prototype.clone()).collect()
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct FunctionDefinition {
-    pub prototype: FunctionPrototype,
-    pub body: Expression,
+pub struct FunctionDefinition<'src> {
+    pub prototype: FunctionPrototype<'src>,
+    pub body: Expression<'src>,
 }
 
 #[derive(Debug, Clone)]
-pub struct FunctionPrototype {
-    pub name: String,
+pub struct FunctionPrototype<'src> {
+    pub name: Ident<'src>,
     pub parameters: Vec<(Variable, Type)>,
     pub return_type: Type,
 }
@@ -50,38 +50,38 @@ pub enum Value {
 }
 
 #[derive(Debug, Clone)]
-pub enum Expression {
+pub enum Expression<'src> {
     Direct(Value),
     FunctionCall {
-        function_name: String,
-        args: Vec<Expression>,
+        function_name: Ident<'src>,
+        args: Vec<Expression<'src>>,
     },
     RecordConstructor {
         record_fields: Vec<Type>,
-        args: Vec<Expression>,
+        args: Vec<Expression<'src>>,
     },
     RecordSelector {
-        record: Box<Expression>,
+        record: Box<Expression<'src>>,
         index: usize,
     },
     LocalBinding {
         var: Variable,
-        bind: Box<Expression>,
-        body: Box<Expression>,
+        bind: Box<Expression<'src>>,
+        body: Box<Expression<'src>>,
     },
     BinaryOperation {
         kind: BinaryOperationKind,
-        lhs: Box<Expression>,
-        rhs: Box<Expression>,
+        lhs: Box<Expression<'src>>,
+        rhs: Box<Expression<'src>>,
     },
     UnaryOperation {
         kind: UnaryOperationKind,
-        inner: Box<Expression>,
+        inner: Box<Expression<'src>>,
     },
     Conditional {
-        condition: Box<Expression>,
-        yes: Box<Expression>,
-        no: Box<Expression>,
+        condition: Box<Expression<'src>>,
+        yes: Box<Expression<'src>>,
+        no: Box<Expression<'src>>,
         typ: Type,
     },
 }
@@ -124,7 +124,7 @@ use ptree::{print_tree, TreeItem};
 use std::borrow::Cow;
 use std::{fmt, io};
 
-impl Program {
+impl Program<'_> {
     pub fn pretty_print(&self) -> io::Result<()> {
         println!("ENTRY FUNCTION:");
         print_tree(&self.entry)?;
@@ -158,9 +158,9 @@ impl fmt::Display for Type {
     }
 }
 
-impl fmt::Display for FunctionPrototype {
+impl fmt::Display for FunctionPrototype<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut fn_string = self.name.clone();
+        let mut fn_string = self.name.to_string();
         fn_string.push('(');
         for (i, (param, typ)) in self.parameters.iter().enumerate() {
             fn_string.push_str(&param.to_string());
@@ -214,8 +214,8 @@ impl fmt::Display for UnaryOperationKind {
     }
 }
 
-impl TreeItem for FunctionDefinition {
-    type Child = Expression;
+impl<'src> TreeItem for FunctionDefinition<'src> {
+    type Child = Expression<'src>;
 
     fn write_self<W: io::Write>(&self, f: &mut W, style: &ptree::Style) -> io::Result<()> {
         write!(f, "{}", style.paint(self.prototype.clone()))
@@ -226,7 +226,7 @@ impl TreeItem for FunctionDefinition {
     }
 }
 
-impl TreeItem for Expression {
+impl<'src> TreeItem for Expression<'src> {
     type Child = Self;
 
     fn write_self<W: io::Write>(&self, f: &mut W, style: &ptree::Style) -> io::Result<()> {
