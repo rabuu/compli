@@ -1,7 +1,7 @@
 //! Lexer
 //!
 //! This submodule prepares source code for parsing by splitting the text into easy-to-work-with
-//! tokens. The [lex] parser is its main interface.
+//! tokens. The [lexer] parser is its main interface.
 
 use std::fmt;
 
@@ -96,7 +96,7 @@ type LexOutput<'src> = Vec<(Token<'src>, Span)>;
 type LexErr<'src> = chumsky::extra::Err<Rich<'src, char, Span>>;
 
 /// Tokenize source code
-pub fn lex<'src, F>() -> impl Parser<'src, LexInput<'src, F>, LexOutput<'src>, LexErr<'src>>
+pub fn lexer<'src, F>() -> impl Parser<'src, LexInput<'src, F>, LexOutput<'src>, LexErr<'src>>
 where
     F: Fn(SimpleSpan) -> Span + 'src,
 {
@@ -168,7 +168,7 @@ mod tests {
     use super::*;
 
     fn tokenize(src: &str) -> Vec<(Token, Span)> {
-        lex().parse(src.map_span(Into::into)).into_output().unwrap()
+        lexer().parse(src.map_span(Into::into)).into_output().unwrap()
     }
 
     fn tokenize_without_spans(src: &str) -> Vec<Token> {
