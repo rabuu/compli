@@ -41,7 +41,7 @@ impl BuiltinFunction {
     }
 }
 
-pub fn all_builtin_prototypes() -> [FunctionPrototype; 9] {
+pub fn all_builtin_prototypes() -> [FunctionPrototype<'static>; 9] {
     [
         FunctionPrototype {
             name: Ident::from("__compli_trace_int"),
