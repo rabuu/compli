@@ -19,7 +19,8 @@ pub use ast::{TypedAst, UntypedAst};
 pub use codegen::{compile, CodegenError};
 pub use ir::Program as IntermediateRepresentation;
 pub use lowering::{lower, LoweringError};
-pub use parsing::{parse, ParsingError};
+pub use parsing::{lex, parse, ParsingError, Token};
 pub use type_checking::{type_check, TypeCheckError};
 
-pub(crate) use common::{Ident, Span, Variable};
+pub use common::Span;
+pub(crate) use common::{Ident, Variable};

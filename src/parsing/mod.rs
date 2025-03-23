@@ -20,7 +20,7 @@ use crate::{ast, Span};
 mod lexer;
 mod parser;
 
-type ParseErr<'src> = chumsky::extra::Err<Rich<'src, lexer::Token<'src>, Span>>;
+pub use lexer::Token;
 
 #[derive(Debug, Error, Diagnostic)]
 pub enum ParsingError {
@@ -44,40 +44,42 @@ pub enum ParsingError {
     },
 }
 
-/// Parse compli source code into an AST
-pub fn parse(_source: &str) -> Result<ast::UntypedAst, Vec<ParsingError>> {
-    todo!()
-    // let end_of_input = Span::marker(source.chars().count());
-    //
-    // let char_iter = source
-    //     .chars()
-    //     .enumerate()
-    //     .map(|(i, c)| (c, Span::single(i)));
+pub fn lex<'src>(source: &'src str) -> Result<Vec<(Token<'src>, Span)>, Vec<ParsingError>> {
+    let (tokens, errs) = lexer::lexer()
+        .parse(source.map_span(Into::into))
+        .into_output_errors();
 
-    // let (tokens, lex_errs) =
-    //     lexer::lex().parse_recovery(Stream::from_iter(end_of_input, char_iter));
-    //
-    // let parse_errs = if let Some(tokens) = tokens {
-    //     let (program, parse_errs) =
-    //         parser::parser().parse_recovery(Stream::from_iter(end_of_input, tokens.into_iter()));
-    //
-    //     if let Some(program) = program.filter(|_| lex_errs.len() + parse_errs.len() == 0) {
-    //         return Ok(program);
-    //     }
-    //
-    //     parse_errs
-    // } else {
-    //     Vec::new()
-    // };
-    //
-    // let errors = lex_errs
-    //     .into_iter()
-    //     .map(|e| e.map(|c| c.to_string()))
-    //     .chain(parse_errs.into_iter().map(|e| e.map(|tok| tok.to_string())))
-    //     .map(build_error)
-    //     .collect();
-    //
-    // Err(errors)
+    if !errs.is_empty() {
+        return Err(errs
+            .into_iter()
+            .map(|e| e.map_token(|c| c.to_string()))
+            .map(build_error)
+            .collect());
+    }
+
+    tokens.ok_or_else(Vec::new)
+}
+
+/// Parse compli source code into an AST
+pub fn parse<'src, 'tok: 'src>(
+    tokens: &'tok [(Token<'src>, Span)],
+    eoi: usize,
+) -> Result<ast::UntypedAst<'src>, Vec<ParsingError>> {
+    let (ast, errs) = parser::parser()
+        .parse(
+            tokens.map(Span::marker(eoi), |(t, s)| (t, s)),
+        )
+        .into_output_errors();
+
+    if !errs.is_empty() {
+        return Err(errs
+            .into_iter()
+            .map(|e| e.map_token(|tok| tok.to_string()))
+            .map(build_error)
+            .collect());
+    }
+
+    ast.ok_or_else(Vec::new)
 }
 
 /// Turn a chumsky error into our error type

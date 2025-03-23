@@ -7,16 +7,16 @@ use chumsky::input::ValueInput;
 use chumsky::prelude::*;
 
 use super::lexer::Token;
-use super::ParseErr;
 
 use crate::{ast, Ident, Span};
 
-pub trait ParseInput<'src>: ValueInput<'src, Token = Token<'src>, Span = Span> {}
-impl<'src, T: ValueInput<'src, Token = Token<'src>, Span = Span>> ParseInput<'src> for T {}
+type ParseErr<'src> = chumsky::extra::Err<Rich<'src, Token<'src>, Span>>;
 
 /// Parse tokens into an AST
-pub fn parser<'src, I: ParseInput<'src>>(
-) -> impl Parser<'src, I, ast::UntypedAst<'src>, ParseErr<'src>> + Clone {
+pub fn parser<'src, I>() -> impl Parser<'src, I, ast::UntypedAst<'src>, ParseErr<'src>>
+where
+    I: ValueInput<'src, Token = Token<'src>, Span = Span>,
+{
     let ident = select! { Token::Ident(ident) => Ident::from(ident) }.labelled("identifier");
 
     let typ = choice((
