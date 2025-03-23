@@ -22,7 +22,7 @@ tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 clap = { version = "4.5.30", features = ["derive"] }
 
 # parser combinators library
-chumsky = "0.9.3"
+chumsky = "0.10.0"
 
 # LLVM code generation
 inkwell = { version = "0.5.0", features = ["llvm18-0"] }
