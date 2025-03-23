@@ -1,11 +1,12 @@
 //! Parsing
 //!
 //! This module is responsible for turning the source code from its string form into an AST.
-//! The main interface is [parse] which takes a string and generates an [ast::UntypedProgram].
 //!
-//! Internally, parsing works in two phases:
-//! - the [lexer] scans the source text and turns it into a stream of tokens
-//! - the [parser] generates the AST from these tokens
+//! This works in two phases:
+//! - The [lexer] scans the source text and turns it into a stream of tokens.
+//!   The external interface is the [lex] function.
+//! - The [parser] generates the AST from these tokens.
+//!   The external intergave is the [parse] function.
 //!
 //! The module relies heavily on the [chumsky] crate for lexing and parsing.
 
