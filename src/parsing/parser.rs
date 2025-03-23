@@ -222,6 +222,9 @@ pub fn parser<'src, I: ParseInput<'src>>(
                 });
 
             choice((if_then_else, let_in, term))
+                .boxed()
+                .labelled("expression")
+                .as_context()
         });
 
     let def = just(Token::KwDef)
@@ -297,4 +300,5 @@ pub fn parser<'src, I: ParseInput<'src>>(
             ast::Program { records, functions }
         })
         .then_ignore(end())
+        .boxed()
 }
