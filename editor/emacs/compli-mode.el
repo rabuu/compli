@@ -30,8 +30,6 @@
 (define-derived-mode compli-mode prog-mode "compli"
   "Simple major mode for editing compli files."
 
-  :syntax-table compli-mode-syntax-table
-
   (setq font-lock-defaults '(compli-font-lock-defaults))
 
   (when compli-tab-width
